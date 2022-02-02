@@ -35,8 +35,10 @@ impl RawTerminal {
         termios.c_lflag &= !(ECHO);
         // turn off canonical mode
         termios.c_lflag &= !(ICANON);
-        // turn off Ctrl-C and Ctrl-z signals
+        // turn off Ctrl-C and Ctrl-Z signals
         termios.c_lflag &= !(ISIG);
+        // disable Ctrl-S and Ctrl-Q
+        termios.c_iflag &= !(IXON);
 
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
