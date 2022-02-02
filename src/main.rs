@@ -45,6 +45,11 @@ impl RawTerminal {
         termios.c_iflag &= !(ICRNL);
         // turn off all output processing
         termios.c_oflag &= !(OPOST);
+        // miscellaneous flags
+        termios.c_iflag &= !(BRKINT);
+        termios.c_iflag &= !(INPCK);
+        termios.c_iflag &= !(ISTRIP);
+        termios.c_cflag |= CS8;
 
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
