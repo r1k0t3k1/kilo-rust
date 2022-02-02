@@ -39,6 +39,10 @@ impl RawTerminal {
         termios.c_lflag &= !(ISIG);
         // disable Ctrl-S and Ctrl-Q
         termios.c_iflag &= !(IXON);
+        // disable Ctrl-V
+        termios.c_lflag &= !(IEXTEN);
+        // fix Ctrl-M
+        termios.c_iflag &= !(ICRNL);
 
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
