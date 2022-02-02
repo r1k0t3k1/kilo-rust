@@ -35,10 +35,8 @@ impl RawTerminal {
         termios.c_lflag &= !(ECHO);
         // turn off canonical mode
         termios.c_lflag &= !(ICANON);
-        termios.c_cflag |= CS8;
-        // timeout for read()
-        termios.c_cc[VMIN] = 1;
-        termios.c_cc[VTIME] = 0;
+        // turn off Ctrl-C and Ctrl-z signals
+        termios.c_lflag &= !(ISIG);
 
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
