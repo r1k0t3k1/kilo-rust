@@ -10,9 +10,9 @@ fn main() {
     loop {
         if raw_terminal.stdin.read(&mut c).is_ok() && c[0] != 113{
             if (c[0] <= 31) || (c[0] == 127) {
-                print!("{}(control) ", c[0])
+                print!("{}(control)\r\n", c[0])
             } else{
-                print!("{} ",c[0]);
+                print!("{}\r\n",c[0]);
             }
         } else {
             break;
@@ -43,6 +43,8 @@ impl RawTerminal {
         termios.c_lflag &= !(IEXTEN);
         // fix Ctrl-M
         termios.c_iflag &= !(ICRNL);
+        // turn off all output processing
+        termios.c_oflag &= !(OPOST);
 
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
