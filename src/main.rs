@@ -5,9 +5,9 @@ use std::os::unix::io::AsRawFd;
 
 fn main() {
     let mut raw_terminal = RawTerminal::enable_raw_mode();
-    let mut c: [u8;1] = [0];
 
     loop {
+        let mut c: [u8;1] = [0];
         if raw_terminal.stdin.read(&mut c).is_ok() && c[0] != 113{
             if (c[0] <= 31) || (c[0] == 127) {
                 print!("{}(control)\r\n", c[0])
@@ -50,6 +50,9 @@ impl RawTerminal {
         termios.c_iflag &= !(INPCK);
         termios.c_iflag &= !(ISTRIP);
         termios.c_cflag |= CS8;
+        // timeout for read
+        termios.c_cc[VMIN] = 0;
+        termios.c_cc[VTIME] = 1;
 
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
