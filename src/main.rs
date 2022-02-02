@@ -1,4 +1,4 @@
-use libc::{iscntrl, STDIN_FILENO, TCSAFLUSH};
+use libc::TCSAFLUSH;
 use termios::*;
 use std::io::{stdin, Read, Stdin};
 use std::os::unix::io::AsRawFd;
@@ -17,8 +17,16 @@ fn main() {
         } else {
             break;
         }
+        // Press Ctrl-Q to quit
+        if c[0] == ctrl('q') {
+            break;
+        }
     }
     return;
+}
+
+pub fn ctrl(c: char) -> u8 {
+    (c as u8) & 31u8
 }
 
 pub struct RawTerminal {
@@ -54,7 +62,7 @@ impl RawTerminal {
         termios.c_cc[VMIN] = 0;
         termios.c_cc[VTIME] = 1;
 
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
+        tcsetattr(stdin.as_raw_fd(), TCSAFLUSH, &termios).unwrap();
         RawTerminal {
             stdin,
             preview_terminal,
@@ -62,7 +70,7 @@ impl RawTerminal {
     }
 
     fn disable_raw_mode(&self) {
-       tcsetattr(STDIN_FILENO, TCSAFLUSH, &self.preview_terminal).unwrap();
+       tcsetattr(self.stdin.as_raw_fd(), TCSAFLUSH, &self.preview_terminal).unwrap();
     }
 }
 
