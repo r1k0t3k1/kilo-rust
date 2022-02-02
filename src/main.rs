@@ -20,7 +20,10 @@ impl RawTerminal {
     fn enable_raw_mode() -> RawTerminal {
         let mut termios = Termios::from_fd(STDIN_FILENO).unwrap();
         let preview_terminal = termios;
+        // echo off
         termios.c_lflag &= !(ECHO);
+        // turn off canonical mode
+        termios.c_lflag &= !(ICANON);
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
             preview_terminal,
