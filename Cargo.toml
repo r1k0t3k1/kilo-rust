@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 libc = "*"
 nix = "0.23.1"
+termios = "0.3.3"
