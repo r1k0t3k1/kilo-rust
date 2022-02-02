@@ -1,31 +1,48 @@
-use libc::{STDIN_FILENO, TCSAFLUSH};
-use nix::unistd;
+use libc::{iscntrl, STDIN_FILENO, TCSAFLUSH};
 use termios::*;
+use std::io::{stdin, Read, Stdin};
+use std::os::unix::io::AsRawFd;
 
 fn main() {
-    let raw_terminal = RawTerminal::enable_raw_mode();
+    let mut raw_terminal = RawTerminal::enable_raw_mode();
     let mut c: [u8;1] = [0];
-    while unistd::read(STDIN_FILENO, &mut c).is_ok() 
-        && c[0] != 113{
-        
+
+    loop {
+        if raw_terminal.stdin.read(&mut c).is_ok() && c[0] != 113{
+            if (c[0] <= 31) || (c[0] == 127) {
+                print!("{}(control) ", c[0])
+            } else{
+                print!("{} ",c[0]);
+            }
+        } else {
+            break;
+        }
     }
     return;
 }
 
 pub struct RawTerminal {
+    stdin: Stdin,
     preview_terminal: Termios,
 }
 
 impl RawTerminal {
     fn enable_raw_mode() -> RawTerminal {
-        let mut termios = Termios::from_fd(STDIN_FILENO).unwrap();
+        let stdin = stdin();
+        let mut termios = Termios::from_fd(stdin.as_raw_fd()).unwrap();
         let preview_terminal = termios;
         // echo off
         termios.c_lflag &= !(ECHO);
         // turn off canonical mode
         termios.c_lflag &= !(ICANON);
+        termios.c_cflag |= CS8;
+        // timeout for read()
+        termios.c_cc[VMIN] = 1;
+        termios.c_cc[VTIME] = 0;
+
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &termios).unwrap();
         RawTerminal {
+            stdin,
             preview_terminal,
         }
     }
