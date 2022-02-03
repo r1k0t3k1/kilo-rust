@@ -1,6 +1,6 @@
 use libc::TCSAFLUSH;
 use termios::*;
-use std::io::{stdin, Read, Write, Stdin, Error, stdout};
+use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error};
 use std::os::unix::io::AsRawFd;
 use std::process;
 
@@ -36,12 +36,14 @@ pub fn ctrl(c: char) -> u8 {
 
 pub struct RawTerminal {
     stdin: Stdin,
+    stdout: Stdout,
     preview_terminal: Termios,
 }
 
 impl RawTerminal {
     fn enable_raw_mode() -> RawTerminal {
         let stdin = stdin();
+        let stdout = stdout();
         let mut termios = Termios::from_fd(stdin.as_raw_fd()).unwrap();
         let preview_terminal = termios;
         // echo off
@@ -70,6 +72,7 @@ impl RawTerminal {
         tcsetattr(stdin.as_raw_fd(), TCSAFLUSH, &termios).unwrap();
         RawTerminal {
             stdin,
+            stdout,
             preview_terminal,
         }
     }
@@ -85,17 +88,25 @@ impl RawTerminal {
     }
 
     fn editor_process_keypress(&mut self) {
-        let c = &self.editor_read_key().unwrap();
-        if c == &ctrl('q') {
+        let c = self.editor_read_key().unwrap();
+        if c == ctrl('q') {
             process::exit(0);
         }
     }
 
-    fn editor_refresh_screen(&self) {
-        let mut stdout = stdout();
-        stdout.write(b"\x1b[2J");
-        stdout.write(b"\x1b[H");
-        stdout.flush();
+    fn editor_refresh_screen(&mut self) {
+        self.stdout.write(b"\x1b[2J");
+        self.stdout.write(b"\x1b[H");
+        self.stdout.flush();
+
+        self.editor_draw_rows();
+    }
+
+    fn editor_draw_rows(&mut self) {
+        for i in 0..23 {
+            self.stdout.write(b"~\r\n");
+            self.stdout.flush();
+        }
     }
 }
 
