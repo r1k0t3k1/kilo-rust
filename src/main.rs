@@ -1,28 +1,32 @@
-use libc::TCSAFLUSH;
+use libc::{TCSAFLUSH, exit};
 use termios::*;
-use std::io::{stdin, Read, Stdin};
+use std::io::{stdin, Read, Stdin, Error};
 use std::os::unix::io::AsRawFd;
+use std::process;
 
 fn main() {
     let mut raw_terminal = RawTerminal::enable_raw_mode();
 
-    loop {
-        let mut c: [u8;1] = [0];
-        if raw_terminal.stdin.read(&mut c).is_ok() && c[0] != 113{
-            if (c[0] <= 31) || (c[0] == 127) {
-                print!("{}(control)\r\n", c[0])
-            } else{
-                print!("{}\r\n",c[0]);
-            }
-        } else {
-            break;
-        }
+    //loop {
+    //  let mut c: [u8;1] = [0];
+    //  if raw_terminal.stdin.read(&mut c).is_ok() {
+    //      if (c[0] <= 31) || (c[0] == 127) {
+    //          print!("{}(control)\r\n", c[0])
+    //      } else{
+    //          print!("{}\r\n",c[0]);
+    //      }
+    //  } else {
+    //      break;
+    //  }
         // Press Ctrl-Q to quit
-        if c[0] == ctrl('q') {
-            break;
-        }
+    //  if c[0] == ctrl('q') {
+    //      break;
+    //  }
+    //}
+    loop {
+        raw_terminal.editor_process_keypress();
     }
-    return;
+    //return;
 }
 
 pub fn ctrl(c: char) -> u8 {
@@ -71,6 +75,19 @@ impl RawTerminal {
 
     fn disable_raw_mode(&self) {
        tcsetattr(self.stdin.as_raw_fd(), TCSAFLUSH, &self.preview_terminal).unwrap();
+    }
+
+    fn editor_read_key(&mut self) -> Result<u8,Error> {
+       let mut c = [0u8;1]; 
+       self.stdin.read(&mut c)?;
+       Ok(c[0])
+    }
+
+    fn editor_process_keypress(&mut self) {
+        let c = &self.editor_read_key().unwrap();
+        if c == &ctrl('q') {
+            process::exit(0);
+        }
     }
 }
 
