@@ -1,6 +1,6 @@
-use libc::{TCSAFLUSH, exit};
+use libc::TCSAFLUSH;
 use termios::*;
-use std::io::{stdin, Read, Stdin, Error};
+use std::io::{stdin, Read, Write, Stdin, Error, stdout};
 use std::os::unix::io::AsRawFd;
 use std::process;
 
@@ -24,6 +24,7 @@ fn main() {
     //  }
     //}
     loop {
+        raw_terminal.editor_refresh_screen();
         raw_terminal.editor_process_keypress();
     }
     //return;
@@ -89,10 +90,18 @@ impl RawTerminal {
             process::exit(0);
         }
     }
+
+    fn editor_refresh_screen(&self) {
+        let mut stdout = stdout();
+        stdout.write(b"\x1b[2J");
+        stdout.write(b"\x1b[H");
+        stdout.flush();
+    }
 }
 
 impl Drop for RawTerminal {
     fn drop(&mut self) {
+        self.editor_refresh_screen();
         self.disable_raw_mode();
     }
 }
