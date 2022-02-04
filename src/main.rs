@@ -1,6 +1,6 @@
 use libc::TCSAFLUSH;
 use termios::*;
-use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error};
+use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error, BufWriter};
 use std::os::unix::io::AsRawFd;
 use std::{process, char};
 use std::str;
@@ -74,7 +74,7 @@ impl RawTerminal {
     }
 
     fn editor_read_key(&mut self) -> Result<u8,Error> {
-       let mut c = [1u8;1]; 
+       let mut c = [0u8;1]; 
        self.stdin.read(&mut c)?;
        Ok(c[0])
     }
@@ -85,33 +85,36 @@ impl RawTerminal {
             process::exit(0);
         }
         let buffer = [c;1];
-        self.stdout.write(&buffer);
-        self.stdout.flush();
+        self.stdout.write(&buffer).unwrap();
     }
 
     fn editor_refresh_screen(&mut self) {
-        self.stdout.write(b"\x1b[2J");
-        self.stdout.write(b"\x1b[H");
-        self.stdout.flush();
+        self.stdout.write_all(b"\x1b[2J\x1b[H").unwrap();
+        self.stdout.flush().unwrap();
         self.editor_draw_rows();
     }
 
     fn editor_draw_rows(&mut self) {
-        for i in 0..=self.screenrows {
-            self.stdout.write(b"~\r\n");
-            self.stdout.flush();
+        let mut buffer = String::with_capacity((3u16 * self.screenrows) as usize);
+        for i in 0..self.screenrows {
+            buffer += "~"; 
+            if i < self.screenrows -1 {
+                buffer += "\r\n";
+            }
         }
+        let mut handle = BufWriter::new(self.stdout.lock());
+        handle.write_all(buffer.as_bytes()).unwrap();
+        handle.flush().unwrap();
     }
 
     fn get_terminal_size(&mut self) -> Option<(u16,u16)> {
-        self.stdout.write(b"\x1b[999C\x1b[999B");
-        self.stdout.flush();
+        self.stdout.write_all(b"\x1b[999C\x1b[999B").unwrap();
         self.get_cursor_position()
     }
 
     fn get_cursor_position(&mut self) -> Option<(u16,u16)> {
-        self.stdout.write(b"\x1b[6n");
-        self.stdout.flush();
+        self.stdout.write(b"\x1b[6n").unwrap();
+        self.stdout.flush().unwrap();
 
         let mut buffer = [0u8;32];
         let mut i = 0usize;
