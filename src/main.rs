@@ -1,19 +1,19 @@
-use libc::{TCSAFLUSH, ioctl, winsize, TIOCGWINSZ, printf};
+use libc::TCSAFLUSH;
 use termios::*;
 use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error};
-use std::mem::size_of;
 use std::os::unix::io::AsRawFd;
-use std::{process, mem};
+use std::{process, char};
+use std::str;
 
 fn main() {
     let mut raw_terminal = RawTerminal::enable_raw_mode();
     let screensize = raw_terminal.get_terminal_size().unwrap();
 
-    raw_terminal.screencols = screensize.0;
-    raw_terminal.screenrows = screensize.1;
+    raw_terminal.screenrows = screensize.0;
+    raw_terminal.screencols = screensize.1;
 
     loop {
-        //raw_terminal.editor_refresh_screen();
+        raw_terminal.editor_refresh_screen();
         raw_terminal.editor_process_keypress();
     }
 }
@@ -74,7 +74,7 @@ impl RawTerminal {
     }
 
     fn editor_read_key(&mut self) -> Result<u8,Error> {
-       let mut c = [0u8;1]; 
+       let mut c = [1u8;1]; 
        self.stdin.read(&mut c)?;
        Ok(c[0])
     }
@@ -106,8 +106,7 @@ impl RawTerminal {
     fn get_terminal_size(&mut self) -> Option<(u16,u16)> {
         self.stdout.write(b"\x1b[999C\x1b[999B");
         self.stdout.flush();
-        self.get_cursor_position();
-        Some((24,24))
+        self.get_cursor_position()
     }
 
     fn get_cursor_position(&mut self) -> Option<(u16,u16)> {
@@ -127,17 +126,16 @@ impl RawTerminal {
         
         buffer[i] = 0u8;
 
-        print!("\r\n&buf[0]: {}\r\n", &buffer[0]);
-        print!("\r\n&buf[1]: {}\r\n", &buffer[1]);
-        print!("\r\n&buf[2]: {}\r\n", &buffer[2]);
-        print!("\r\n&buf[3]: {}\r\n", &buffer[3]);
-        print!("\r\n&buf[4]: {}\r\n", &buffer[4]);
-        print!("\r\n&buf[5]: {}\r\n", &buffer[5]);
-        print!("\r\n&buf[6]: {}\r\n", &buffer[6]);
+        if buffer[0] != b'\x1b' || buffer[1] != b'[' { return None };
+       
+        let mut row: u16 = 0;
+        let mut column: u16 = 0;
 
-        //if buffer[0] != b'\x1b' || buffer[1] != b'[' { return None };
-        
-        Some((0,0))
+        if let Ok(s) = str::from_utf8(&buffer[1..7]) {
+            row = s[1..=2].parse().unwrap();
+            column = s[4..=5].parse().unwrap();
+        }
+        Some((row,column))
     }
 }
 
