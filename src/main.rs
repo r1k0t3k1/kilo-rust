@@ -72,6 +72,7 @@ impl RawTerminal {
         }
     }
 
+
     fn disable_raw_mode(&self) {
        tcsetattr(self.stdin.as_raw_fd(), TCSAFLUSH, &self.preview_terminal).unwrap();
     }
@@ -92,9 +93,9 @@ impl RawTerminal {
     }
 
     fn editor_refresh_screen(&mut self) {
-        self.append_buffer.append(b"\x1b[2J\x1b[H".to_vec().as_mut());
+        self.append_buffer.append(b"\x1b[?25l\x1b[2J\x1b[H".to_vec().as_mut());
         self.editor_draw_rows();
-        self.append_buffer.append(b"\x1b[H".to_vec().as_mut());
+        self.append_buffer.append(b"\x1b[H\x1b[?25h".to_vec().as_mut());
         self.stdout.write_all(self.append_buffer.as_slice()).unwrap();
     }
 
