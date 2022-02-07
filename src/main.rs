@@ -4,6 +4,8 @@ use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error };
 use std::os::unix::io::AsRawFd;
 use std::{process, char, str };
 
+const VERSION: &str = "0.0.1";
+
 fn main() {
     let mut raw_terminal = RawTerminal::enable_raw_mode();
     let screensize = raw_terminal.get_terminal_size().unwrap();
@@ -102,6 +104,18 @@ impl RawTerminal {
     fn editor_draw_rows(&mut self) {
         for i in 0..self.screenrows {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
+
+            if i == self.screenrows / 3 {
+                let message = format!("riko editor -- version {}", VERSION); 
+
+                let padding_count = (self.screencols - message.len() as u16) / 2 ;
+                for i in (0..padding_count) {
+                    self.append_buffer.push(b' ');
+                }
+
+                self.append_buffer.append(message.into_bytes().as_mut());
+            }
+
             if i < self.screenrows -1 {
                 self.append_buffer.append(b"\r\n".to_vec().as_mut());
             }
