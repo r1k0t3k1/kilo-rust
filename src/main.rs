@@ -1,9 +1,8 @@
-use libc::TCSAFLUSH;
+use libc::{TCSAFLUSH, ARPHRD_EETHER};
 use termios::*;
-use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error, BufWriter};
+use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error };
 use std::os::unix::io::AsRawFd;
-use std::{process, char};
-use std::str;
+use std::{process, char, str };
 
 fn main() {
     let mut raw_terminal = RawTerminal::enable_raw_mode();
@@ -19,12 +18,13 @@ fn main() {
 }
 
 pub fn ctrl(c: char) -> u8 {
-    (c as u8) & 31u8
+    (c as u8) & 31_u8
 }
 
 pub struct RawTerminal {
     stdin: Stdin,
     stdout: Stdout,
+    append_buffer: Vec<u8>,
     screencols: u16,
     screenrows: u16,
     preview_terminal: Termios,
@@ -58,11 +58,14 @@ impl RawTerminal {
         // timeout for read
         termios.c_cc[VMIN] = 0;
         termios.c_cc[VTIME] = 1;
+    
+        let buf: Vec<u8> = vec![];
 
         tcsetattr(stdin.as_raw_fd(), TCSAFLUSH, &termios).unwrap();
         RawTerminal {
             stdin,
             stdout,
+            append_buffer: buf,
             screencols: 0,
             screenrows: 0,
             preview_terminal,
@@ -74,7 +77,7 @@ impl RawTerminal {
     }
 
     fn editor_read_key(&mut self) -> Result<u8,Error> {
-       let mut c = [0u8;1]; 
+       let mut c = [0_u8;1]; 
        self.stdin.read(&mut c)?;
        Ok(c[0])
     }
@@ -89,22 +92,19 @@ impl RawTerminal {
     }
 
     fn editor_refresh_screen(&mut self) {
-        self.stdout.write_all(b"\x1b[2J\x1b[H").unwrap();
-        self.stdout.flush().unwrap();
+        self.append_buffer.append(b"\x1b[2J\x1b[H".to_vec().as_mut());
         self.editor_draw_rows();
+        self.append_buffer.append(b"\x1b[H".to_vec().as_mut());
+        self.stdout.write_all(self.append_buffer.as_slice()).unwrap();
     }
 
     fn editor_draw_rows(&mut self) {
-        let mut buffer = String::with_capacity((3u16 * self.screenrows) as usize);
         for i in 0..self.screenrows {
-            buffer += "~"; 
+            self.append_buffer.push(b'~');
             if i < self.screenrows -1 {
-                buffer += "\r\n";
+                self.append_buffer.append(b"\r\n".to_vec().as_mut());
             }
         }
-        let mut handle = BufWriter::new(self.stdout.lock());
-        handle.write_all(buffer.as_bytes()).unwrap();
-        handle.flush().unwrap();
     }
 
     fn get_terminal_size(&mut self) -> Option<(u16,u16)> {
