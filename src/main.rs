@@ -1,10 +1,21 @@
-use libc::{TCSAFLUSH, ARPHRD_EETHER};
+use libc::TCSAFLUSH;
 use termios::*;
 use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error };
 use std::os::unix::io::AsRawFd;
-use std::{process, char, str };
+use std::{process, char, str, u8 };
 
 const VERSION: &str = "0.0.1";
+
+#[repr(u8)]
+#[derive(PartialEq)]
+pub enum EditorKey {
+    Char(u8),
+    Escape,
+    ArrowUp,
+    ArrowLeft,
+    ArrowDown,
+    ArrowRight,
+}
 
 fn main() {
     let mut raw_terminal = RawTerminal::enable_raw_mode();
@@ -19,8 +30,8 @@ fn main() {
     }
 }
 
-pub fn ctrl(c: char) -> u8 {
-    (c as u8) & 31_u8
+pub fn ctrl(c: char) -> EditorKey {
+    EditorKey::Char((c as u8) & 31_u8)
 }
 
 pub struct RawTerminal {
@@ -83,7 +94,7 @@ impl RawTerminal {
        tcsetattr(self.stdin.as_raw_fd(), TCSAFLUSH, &self.preview_terminal).unwrap();
     }
 
-    fn editor_read_key(&mut self) -> Result<u8,Error> {
+    fn editor_read_key(&mut self) -> Result<EditorKey,Error> {
        let mut c = [0_u8;1]; 
        self.stdin.read(&mut c)?;
        if c[0] == 27 {
@@ -91,16 +102,16 @@ impl RawTerminal {
             self.stdin.read(&mut esc)?;
             if esc[0] == 91 {
                 match esc[1] {
-                    65 => return Ok(119),
-                    66 => return Ok(115),
-                    67 => return Ok(100),
-                    68 => return Ok(97),
+                    65 => return Ok(EditorKey::ArrowUp),
+                    66 => return Ok(EditorKey::ArrowDown),
+                    67 => return Ok(EditorKey::ArrowRight),
+                    68 => return Ok(EditorKey::ArrowLeft),
                     _  => (),
                 }
             }
-            return Ok(27);
+            return Ok(EditorKey::Escape);
        } 
-       Ok(c[0])
+       Ok(EditorKey::Char(c[0]))
     }
 
     fn editor_process_keypress(&mut self) {
@@ -108,9 +119,13 @@ impl RawTerminal {
         if c == ctrl('q') {
             process::exit(0);
         }
-        self.editor_move_cursor(c);
-        let buffer = [c;1];
-        self.stdout.write(&buffer).unwrap();
+        self.editor_move_cursor(&c);
+        match c {
+            EditorKey::Char(ch) => {
+                let byte = [ch;1];
+                self.stdout.write(&byte).unwrap();}
+            _ => (),
+        }
     }
 
     fn editor_refresh_screen(&mut self) {
@@ -180,12 +195,21 @@ impl RawTerminal {
         Some((row,column))
     }
 
-    fn editor_move_cursor(&mut self, c: u8) {
+    fn editor_move_cursor(&mut self, c: &EditorKey) {
         match c {
-            119 => self.cursor_y = self.cursor_y.saturating_sub(1), // w
-            97  => self.cursor_x = self.cursor_x.saturating_sub(1), // a
-            115 => self.cursor_y = self.cursor_y.saturating_add(1), // s
-            100 => self.cursor_x = self.cursor_x.saturating_add(1), // d
+            EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1), // w
+            EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), // a
+            EditorKey::ArrowDown  => self.cursor_y = self.cursor_y.saturating_add(1), // s
+            EditorKey::ArrowRight => self.cursor_x = self.cursor_x.saturating_add(1), // d
+            EditorKey::Char(ch) => {
+                match ch {
+                    119 => self.cursor_y = self.cursor_y.saturating_sub(1),
+                    97  => self.cursor_x = self.cursor_x.saturating_sub(1),
+                    115 => self.cursor_y = self.cursor_y.saturating_add(1),
+                    100 => self.cursor_x = self.cursor_x.saturating_add(1),
+                    _ => (),
+                }
+            }
             _ => (),
         }
     }
