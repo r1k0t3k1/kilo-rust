@@ -86,6 +86,20 @@ impl RawTerminal {
     fn editor_read_key(&mut self) -> Result<u8,Error> {
        let mut c = [0_u8;1]; 
        self.stdin.read(&mut c)?;
+       if c[0] == 27 {
+            let mut esc = [0_u8;3];
+            self.stdin.read(&mut esc)?;
+            if esc[0] == 91 {
+                match esc[1] {
+                    65 => return Ok(119),
+                    66 => return Ok(115),
+                    67 => return Ok(100),
+                    68 => return Ok(97),
+                    _  => (),
+                }
+            }
+            return Ok(27);
+       } 
        Ok(c[0])
     }
 
