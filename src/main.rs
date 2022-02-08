@@ -15,6 +15,8 @@ pub enum EditorKey {
     ArrowLeft,
     ArrowDown,
     ArrowRight,
+    PageUp,
+    PageDown,
 }
 
 fn main() {
@@ -95,13 +97,18 @@ impl RawTerminal {
     }
 
     fn editor_read_key(&mut self) -> Result<EditorKey,Error> {
-       let mut c = [0_u8;1]; 
+       let mut c = [0_u8;4]; 
        self.stdin.read(&mut c)?;
        if c[0] == 27 {
-            let mut esc = [0_u8;3];
-            self.stdin.read(&mut esc)?;
-            if esc[0] == 91 {
-                match esc[1] {
+            if c[1] == 91 {
+                if c[3] == 126 {
+                    match c[2] {
+                        54 => return Ok(EditorKey::PageUp),
+                        55 => return Ok(EditorKey::PageDown),
+                        _ => (),
+                    }
+                }
+                match c[2] {
                     65 => return Ok(EditorKey::ArrowUp),
                     66 => return Ok(EditorKey::ArrowDown),
                     67 => return Ok(EditorKey::ArrowRight),
@@ -209,6 +216,13 @@ impl RawTerminal {
                     100 => if self.cursor_x < self.screencols - 1 { self.cursor_x += 1 },
                     _ => (),
                 }
+            },
+            EditorKey::PageDown => {
+                let mut times = self.screenrows;
+                while times > 0 {
+                    self.cursor_y = self.cursor_y.saturating_sub(1);
+                    times -= 1;
+                };
             }
             _ => (),
         }
