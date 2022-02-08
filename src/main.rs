@@ -197,16 +197,16 @@ impl RawTerminal {
 
     fn editor_move_cursor(&mut self, c: &EditorKey) {
         match c {
-            EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1), // w
-            EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), // a
-            EditorKey::ArrowDown  => self.cursor_y = self.cursor_y.saturating_add(1), // s
-            EditorKey::ArrowRight => self.cursor_x = self.cursor_x.saturating_add(1), // d
+            EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
+            EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), 
+            EditorKey::ArrowDown  => if self.cursor_y < self.screenrows - 1 { self.cursor_y += 1 },
+            EditorKey::ArrowRight => if self.cursor_x < self.screencols - 1 { self.cursor_x += 1 },
             EditorKey::Char(ch) => {
                 match ch {
                     119 => self.cursor_y = self.cursor_y.saturating_sub(1),
                     97  => self.cursor_x = self.cursor_x.saturating_sub(1),
-                    115 => self.cursor_y = self.cursor_y.saturating_add(1),
-                    100 => self.cursor_x = self.cursor_x.saturating_add(1),
+                    115 => if self.cursor_y < self.screenrows - 1 { self.cursor_y += 1 },
+                    100 => if self.cursor_x < self.screencols - 1 { self.cursor_x += 1 },
                     _ => (),
                 }
             }
