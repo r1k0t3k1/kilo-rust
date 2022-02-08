@@ -29,6 +29,8 @@ pub struct RawTerminal {
     append_buffer: Vec<u8>,
     screencols: u16,
     screenrows: u16,
+    cursor_x: u16,
+    cursor_y: u16,
     preview_terminal: Termios,
 }
 
@@ -70,6 +72,8 @@ impl RawTerminal {
             append_buffer: buf,
             screencols: 0,
             screenrows: 0,
+            cursor_x: 0,
+            cursor_y: 0,
             preview_terminal,
         }
     }
@@ -90,6 +94,7 @@ impl RawTerminal {
         if c == ctrl('q') {
             process::exit(0);
         }
+        self.editor_move_cursor(c);
         let buffer = [c;1];
         self.stdout.write(&buffer).unwrap();
     }
@@ -97,8 +102,13 @@ impl RawTerminal {
     fn editor_refresh_screen(&mut self) {
         self.append_buffer.append(b"\x1b[?25l\x1b[H".to_vec().as_mut());
         self.editor_draw_rows();
-        self.append_buffer.append(b"\x1b[H\x1b[?25h".to_vec().as_mut());
+        self.append_buffer.append(format!("\x1b[{};{}H",self.cursor_y + 1, self.cursor_x + 1)
+            .as_bytes()
+            .to_vec()
+            .as_mut());
+        self.append_buffer.append(b"\x1b[?25h".to_vec().as_mut());
         self.stdout.write_all(self.append_buffer.as_slice()).unwrap();
+        self.stdout.flush().unwrap();
     }
 
     fn editor_draw_rows(&mut self) {
@@ -109,7 +119,7 @@ impl RawTerminal {
                 let message = format!("riko editor -- version {}", VERSION); 
 
                 let padding_count = (self.screencols - message.len() as u16) / 2 ;
-                for i in (0..padding_count) {
+                for _i in 0..padding_count {
                     self.append_buffer.push(b' ');
                 }
 
@@ -154,6 +164,16 @@ impl RawTerminal {
             column = s[4..=5].parse().unwrap();
         }
         Some((row,column))
+    }
+
+    fn editor_move_cursor(&mut self, c: u8) {
+        match c {
+            119 => self.cursor_y = self.cursor_y.saturating_sub(1), // w
+            97  => self.cursor_x = self.cursor_x.saturating_sub(1), // a
+            115 => self.cursor_y = self.cursor_y.saturating_add(1), // s
+            100 => self.cursor_x = self.cursor_x.saturating_add(1), // d
+            _ => (),
+        }
     }
 }
 
