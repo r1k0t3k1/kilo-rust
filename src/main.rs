@@ -18,6 +18,7 @@ pub enum EditorKey {
     PageDown,
     Home,
     End,
+    Delete,
 }
 
 fn main() {
@@ -104,6 +105,7 @@ impl RawTerminal {
                 if c[3] == 126 {
                     match c[2] {
                         49 => return Ok(EditorKey::Home),
+                        51 => return Ok(EditorKey::Delete),
                         52 => return Ok(EditorKey::End),
                         53 => return Ok(EditorKey::PageUp),
                         54 => return Ok(EditorKey::PageDown),
