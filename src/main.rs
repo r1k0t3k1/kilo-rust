@@ -1,4 +1,4 @@
-use libc::TCSAFLUSH;
+use libc::{TCSAFLUSH, printf};
 use termios::*;
 use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error };
 use std::os::unix::io::AsRawFd;
@@ -6,7 +6,6 @@ use std::{process, char, str, u8 };
 
 const VERSION: &str = "0.0.1";
 
-#[repr(u8)]
 #[derive(PartialEq)]
 pub enum EditorKey {
     Char(u8),
@@ -22,7 +21,6 @@ pub enum EditorKey {
 fn main() {
     let mut raw_terminal = RawTerminal::enable_raw_mode();
     let screensize = raw_terminal.get_terminal_size().unwrap();
-
     raw_terminal.screenrows = screensize.0;
     raw_terminal.screencols = screensize.1;
 
@@ -152,9 +150,9 @@ impl RawTerminal {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
 
             if i == self.screenrows / 3 {
-                let message = format!("riko editor -- version {}", VERSION); 
+                let message = format!("riko editor -- version {} x: {} y: {}", VERSION, self.screencols, self.screenrows); 
 
-                let padding_count = (self.screencols - message.len() as u16) / 2 ;
+                let padding_count = (self.screencols - message.len() as u16) / 2;
                 for _i in 0..padding_count {
                     self.append_buffer.push(b' ');
                 }
@@ -170,6 +168,7 @@ impl RawTerminal {
 
     fn get_terminal_size(&mut self) -> Option<(u16,u16)> {
         self.stdout.write_all(b"\x1b[999C\x1b[999B").unwrap();
+        self.stdout.flush().unwrap();
         self.get_cursor_position()
     }
 
@@ -178,27 +177,31 @@ impl RawTerminal {
         self.stdout.flush().unwrap();
 
         let mut buffer = [0u8;32];
-        let mut i = 0usize;
 
-        while i < buffer.len() - 1 {
+        for i in 0..buffer.len() {
             let mut c = [0u8;1];
             if self.stdin.read(&mut c).is_err() { break; };
-            if c[0] == 82 { break; };
+            if c[0] == 82 { 
+                buffer[i] = c[0];
+                break; 
+            };
             buffer[i] = c[0];
-            i += 1;
-        } 
-        
-        buffer[i] = 0u8;
+        }
 
         if buffer[0] != b'\x1b' || buffer[1] != b'[' { return None };
        
         let mut row: u16 = 0;
         let mut column: u16 = 0;
 
-        if let Ok(s) = str::from_utf8(&buffer[1..7]) {
-            row = s[1..=2].parse().unwrap();
-            column = s[4..=5].parse().unwrap();
+        let bracket_position = &buffer.iter().position(|&x| x == 91).expect("bracket_position");
+        let semicolon_position = &buffer.iter().position(|&x| x == 59).expect("semicolon_position");
+        let r_position = &buffer.iter().position(|&x| x == 82).expect("r_position");
+
+        if let Ok(s) = str::from_utf8(&buffer) {
+            row = s[bracket_position+1..*semicolon_position].parse().unwrap();
+            column = s[semicolon_position+1..*r_position].parse().unwrap();
         }
+        
         Some((row,column))
     }
 
@@ -206,14 +209,14 @@ impl RawTerminal {
         match c {
             EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
             EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), 
-            EditorKey::ArrowDown  => if self.cursor_y < self.screenrows - 1 { self.cursor_y += 1 },
-            EditorKey::ArrowRight => if self.cursor_x < self.screencols - 1 { self.cursor_x += 1 },
+            EditorKey::ArrowDown  => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
+            EditorKey::ArrowRight => if self.cursor_x < self.screencols.saturating_sub(1) { self.cursor_x += 1 },
             EditorKey::Char(ch) => {
                 match ch {
                     119 => self.cursor_y = self.cursor_y.saturating_sub(1),
                     97  => self.cursor_x = self.cursor_x.saturating_sub(1),
-                    115 => if self.cursor_y < self.screenrows - 1 { self.cursor_y += 1 },
-                    100 => if self.cursor_x < self.screencols - 1 { self.cursor_x += 1 },
+                    115 => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
+                    100 => if self.cursor_x < self.screencols.saturating_sub(1) { self.cursor_x += 1 },
                     _ => (),
                 }
             },
@@ -232,6 +235,8 @@ impl RawTerminal {
 impl Drop for RawTerminal {
     fn drop(&mut self) {
         self.editor_refresh_screen();
+        self.stdout.write_all(b"\x1b[2J\x1b[H").unwrap();
+        self.stdout.flush().unwrap();
         self.disable_raw_mode();
     }
 }
