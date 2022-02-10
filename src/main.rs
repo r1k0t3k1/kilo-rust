@@ -27,6 +27,8 @@ fn main() {
     raw_terminal.screenrows = screensize.0;
     raw_terminal.screencols = screensize.1;
 
+    raw_terminal.editor_open();
+
     loop {
         raw_terminal.editor_refresh_screen();
         raw_terminal.editor_process_keypress();
@@ -46,6 +48,13 @@ pub struct RawTerminal {
     cursor_x: u16,
     cursor_y: u16,
     preview_terminal: Termios,
+    row_count: usize,
+    row: EditorRow,
+}
+
+pub struct EditorRow {
+    size: usize,
+    chars: Vec<u8>,
 }
 
 impl RawTerminal {
@@ -89,6 +98,8 @@ impl RawTerminal {
             cursor_x: 0,
             cursor_y: 0,
             preview_terminal,
+            row_count: 0,
+            row: EditorRow { size: 0, chars: Vec::new() },
         }
     }
 
@@ -166,16 +177,19 @@ impl RawTerminal {
     fn editor_draw_rows(&mut self) {
         for i in 0..self.screenrows {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
+            if i >= self.row_count as u16 {
+                if i == self.screenrows / 3 {
+                    let message = format!("riko editor -- version {}", VERSION); 
 
-            if i == self.screenrows / 3 {
-                let message = format!("riko editor -- version {}", VERSION); 
+                    let padding_count = (self.screencols - message.len() as u16) / 2;
+                    for _i in 0..padding_count {
+                        self.append_buffer.push(b' ');
+                    }
 
-                let padding_count = (self.screencols - message.len() as u16) / 2;
-                for _i in 0..padding_count {
-                    self.append_buffer.push(b' ');
+                    self.append_buffer.append(message.into_bytes().as_mut());
                 }
-
-                self.append_buffer.append(message.into_bytes().as_mut());
+            } else {
+                self.append_buffer.append(&mut self.row.chars.clone());
             }
 
             if i < self.screenrows -1 {
@@ -248,13 +262,18 @@ impl RawTerminal {
             _ => (),
         }
     }
+
+    fn editor_open(&mut self) {
+        let message = String::from("Hello, world!");
+        self.row.size = message.len(); 
+        self.row.chars = message.as_bytes().to_vec();
+        self.row.chars.push(0);
+        self.row_count += 1;
+    }
 }
 
 impl Drop for RawTerminal {
     fn drop(&mut self) {
-        self.editor_refresh_screen();
-        self.stdout.write_all(b"\x1b[2J\x1b[H").unwrap();
-        self.stdout.flush().unwrap();
         self.disable_raw_mode();
     }
 }
