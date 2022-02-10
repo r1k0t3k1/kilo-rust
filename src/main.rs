@@ -1,4 +1,4 @@
-use libc::{TCSAFLUSH, printf};
+use libc::TCSAFLUSH;
 use termios::*;
 use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error };
 use std::os::unix::io::AsRawFd;
@@ -16,6 +16,8 @@ pub enum EditorKey {
     ArrowRight,
     PageUp,
     PageDown,
+    Home,
+    End,
 }
 
 fn main() {
@@ -101,8 +103,12 @@ impl RawTerminal {
             if c[1] == 91 {
                 if c[3] == 126 {
                     match c[2] {
-                        54 => return Ok(EditorKey::PageUp),
-                        55 => return Ok(EditorKey::PageDown),
+                        49 => return Ok(EditorKey::Home),
+                        52 => return Ok(EditorKey::End),
+                        53 => return Ok(EditorKey::PageUp),
+                        54 => return Ok(EditorKey::PageDown),
+                        55 => return Ok(EditorKey::Home),
+                        56 => return Ok(EditorKey::End),
                         _ => (),
                     }
                 }
@@ -111,10 +117,18 @@ impl RawTerminal {
                     66 => return Ok(EditorKey::ArrowDown),
                     67 => return Ok(EditorKey::ArrowRight),
                     68 => return Ok(EditorKey::ArrowLeft),
+                    70 => return Ok(EditorKey::End),
+                    72 => return Ok(EditorKey::Home),
                     _  => (),
                 }
             }
             return Ok(EditorKey::Escape);
+       } else if c[0] == 79 {
+           match c[1] {
+                70 => return Ok(EditorKey::End),
+                72 => return Ok(EditorKey::Home),
+                _  => (),
+           }
        } 
        Ok(EditorKey::Char(c[0]))
     }
@@ -129,6 +143,8 @@ impl RawTerminal {
             EditorKey::Char(ch) => {
                 let byte = [ch;1];
                 self.stdout.write(&byte).unwrap();}
+            EditorKey::Home => self.cursor_x = 0,
+            EditorKey::End  => self.cursor_x = self.screencols - 1,
             _ => (),
         }
     }
@@ -150,7 +166,7 @@ impl RawTerminal {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
 
             if i == self.screenrows / 3 {
-                let message = format!("riko editor -- version {} x: {} y: {}", VERSION, self.screencols, self.screenrows); 
+                let message = format!("riko editor -- version {}", VERSION); 
 
                 let padding_count = (self.screencols - message.len() as u16) / 2;
                 for _i in 0..padding_count {
