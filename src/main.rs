@@ -1,8 +1,9 @@
 use libc::TCSAFLUSH;
 use termios::*;
-use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error };
+use std::fs::File;
+use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error, BufReader, BufRead };
 use std::os::unix::io::AsRawFd;
-use std::{process, char, str, u8 };
+use std::{process, char, str, u8, env};
 
 const VERSION: &str = "0.0.1";
 
@@ -27,7 +28,14 @@ fn main() {
     raw_terminal.screenrows = screensize.0;
     raw_terminal.screencols = screensize.1;
 
-    raw_terminal.editor_open();
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 { 
+        println!("usage: kilo-rust /home/user/test.txt");
+        return;
+    }
+        
+    let filename = &args[1];
+    raw_terminal.editor_open(&filename);
 
     loop {
         raw_terminal.editor_refresh_screen();
@@ -263,12 +271,17 @@ impl RawTerminal {
         }
     }
 
-    fn editor_open(&mut self) {
-        let message = String::from("Hello, world!");
-        self.row.size = message.len(); 
-        self.row.chars = message.as_bytes().to_vec();
-        self.row.chars.push(0);
-        self.row_count += 1;
+    fn editor_open(&mut self, filename: &String) {
+        let file = File::open(filename)
+            .expect("file open error");
+
+        for result in BufReader::new(file).lines() {
+           let l = result.unwrap();  
+           self.row.size = l.len();
+           self.row.chars = l.into_bytes();
+           self.row.chars.push(0);
+           self.row_count += 1;
+        }
     }
 }
 
