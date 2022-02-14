@@ -3,7 +3,7 @@ use termios::*;
 use std::fs::File;
 use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error, BufReader, BufRead };
 use std::os::unix::io::AsRawFd;
-use std::{process, char, str, u8, env};
+use std::{process, char, str, u8, env, isize};
 
 const VERSION: &str = "0.0.1";
 
@@ -46,6 +46,7 @@ pub fn ctrl(c: char) -> EditorKey {
 }
 
 pub struct RawTerminal {
+    preview_terminal: Termios,
     stdin: Stdin,
     stdout: Stdout,
     append_buffer: Vec<u8>,
@@ -53,8 +54,8 @@ pub struct RawTerminal {
     screenrows: u16,
     cursor_x: u16,
     cursor_y: u16,
-    preview_terminal: Termios,
     row: Vec<EditorRow>,
+    row_offset: isize,
 }
 
 pub struct EditorRow {
@@ -94,6 +95,7 @@ impl RawTerminal {
 
         tcsetattr(stdin.as_raw_fd(), TCSAFLUSH, &termios).unwrap();
         RawTerminal {
+            preview_terminal,
             stdin,
             stdout,
             append_buffer: buf,
@@ -101,8 +103,8 @@ impl RawTerminal {
             screenrows: 0,
             cursor_x: 0,
             cursor_y: 0,
-            preview_terminal,
             row: Vec::<EditorRow>::new(),
+            row_offset: 0,
         }
     }
 
@@ -166,9 +168,10 @@ impl RawTerminal {
     }
 
     fn editor_refresh_screen(&mut self) {
+        self.editor_scroll();
         self.append_buffer.append(b"\x1b[?25l\x1b[H".to_vec().as_mut());
         self.editor_draw_rows();
-        self.append_buffer.append(format!("\x1b[{};{}H",self.cursor_y + 1, self.cursor_x + 1)
+        self.append_buffer.append(format!("\x1b[{};{}H",(self.cursor_y as isize - self.row_offset) + 1, self.cursor_x + 1)
             .as_bytes()
             .to_vec()
             .as_mut());
@@ -180,19 +183,24 @@ impl RawTerminal {
     fn editor_draw_rows(&mut self) {
         for i in 0..self.screenrows {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
-            if i >= self.row.len() as u16 {
-                if self.row.len() == 0 && i == self.screenrows / 3 {
-                    let message = format!("riko editor -- version {}", VERSION); 
+            let file_row = i as usize + self.row_offset as usize;
+            if i as isize + self.row_offset >= self.row.len() as isize {
+                if i >= self.row.len() as u16 {
+                    if self.row.len() == 0 && i == self.screenrows / 3 {
+                        let message = format!("riko editor -- version {}", VERSION); 
 
-                    let padding_count = (self.screencols - message.len() as u16) / 2;
-                    for _i in 0..padding_count {
-                        self.append_buffer.push(b' ');
+                        let padding_count = (self.screencols - message.len() as u16) / 2;
+                        for _i in 0..padding_count {
+                            self.append_buffer.push(b' ');
+                        }
+
+                        self.append_buffer.append(message.into_bytes().as_mut());
                     }
-
-                    self.append_buffer.append(message.into_bytes().as_mut());
+                } else {
+                    self.append_buffer.append(&mut self.row[i as usize].chars.clone());
                 }
             } else {
-                self.append_buffer.append(&mut self.row[i as usize].chars.clone());
+                self.append_buffer.append(&mut self.row[file_row].chars.clone());
             }
 
             if i < self.screenrows -1 {
@@ -242,10 +250,10 @@ impl RawTerminal {
 
     fn editor_move_cursor(&mut self, c: &EditorKey) {
         match c {
-            EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
             EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), 
-            EditorKey::ArrowDown  => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
             EditorKey::ArrowRight => if self.cursor_x < self.screencols.saturating_sub(1) { self.cursor_x += 1 },
+            EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
+            EditorKey::ArrowDown  => if (self.cursor_y as usize) < self.row.len() { self.cursor_y += 1 },
             EditorKey::Char(ch) => {
                 match ch {
                     119 => self.cursor_y = self.cursor_y.saturating_sub(1),
@@ -282,6 +290,15 @@ impl RawTerminal {
         r.chars = row_str.into_bytes();
         r.chars.push(0);
         self.row.push(r);
+    }
+
+    fn editor_scroll(&mut self) {
+        if (self.cursor_y as isize) < self.row_offset {
+            self.row_offset = self.cursor_y as isize;
+        }
+        if self.cursor_y as isize >= self.row_offset + (self.screenrows as isize) {
+            self.row_offset = (self.cursor_y - self.screenrows + 1) as isize; 
+        }
     }
 }
 
