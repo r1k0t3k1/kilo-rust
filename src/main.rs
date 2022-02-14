@@ -54,12 +54,10 @@ pub struct RawTerminal {
     cursor_x: u16,
     cursor_y: u16,
     preview_terminal: Termios,
-    row_count: usize,
-    row: EditorRow,
+    row: Vec<EditorRow>,
 }
 
 pub struct EditorRow {
-    size: usize,
     chars: Vec<u8>,
 }
 
@@ -104,8 +102,7 @@ impl RawTerminal {
             cursor_x: 0,
             cursor_y: 0,
             preview_terminal,
-            row_count: 0,
-            row: EditorRow { size: 0, chars: Vec::new() },
+            row: Vec::<EditorRow>::new(),
         }
     }
 
@@ -183,8 +180,8 @@ impl RawTerminal {
     fn editor_draw_rows(&mut self) {
         for i in 0..self.screenrows {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
-            if i >= self.row_count as u16 {
-                if self.row_count == 0 && i == self.screenrows / 3 {
+            if i >= self.row.len() as u16 {
+                if self.row.len() == 0 && i == self.screenrows / 3 {
                     let message = format!("riko editor -- version {}", VERSION); 
 
                     let padding_count = (self.screencols - message.len() as u16) / 2;
@@ -195,7 +192,7 @@ impl RawTerminal {
                     self.append_buffer.append(message.into_bytes().as_mut());
                 }
             } else {
-                self.append_buffer.append(&mut self.row.chars.clone());
+                self.append_buffer.append(&mut self.row[i as usize].chars.clone());
             }
 
             if i < self.screenrows -1 {
@@ -274,12 +271,17 @@ impl RawTerminal {
             .expect("file open error");
 
         for result in BufReader::new(file).lines() {
-           let l = result.unwrap();  
-           self.row.size = l.len();
-           self.row.chars = l.into_bytes();
-           self.row.chars.push(0);
-           self.row_count += 1;
+           let mut l = result.unwrap();  
+           l.push_str("\r");
+           self.editor_append_row(l);
         }
+    }
+
+    fn editor_append_row(&mut self, row_str: String) {
+        let mut r = EditorRow { chars: Vec::new() };
+        r.chars = row_str.into_bytes();
+        r.chars.push(0);
+        self.row.push(r);
     }
 }
 
