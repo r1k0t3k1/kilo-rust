@@ -29,13 +29,11 @@ fn main() {
     raw_terminal.screencols = screensize.1;
 
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 { 
-        println!("usage: kilo-rust /home/user/test.txt");
-        return;
+    if args.len() >= 2 { 
+        let filename = &args[1];
+        raw_terminal.editor_open(&filename);
     }
         
-    let filename = &args[1];
-    raw_terminal.editor_open(&filename);
 
     loop {
         raw_terminal.editor_refresh_screen();
@@ -186,7 +184,7 @@ impl RawTerminal {
         for i in 0..self.screenrows {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
             if i >= self.row_count as u16 {
-                if i == self.screenrows / 3 {
+                if self.row_count == 0 && i == self.screenrows / 3 {
                     let message = format!("riko editor -- version {}", VERSION); 
 
                     let padding_count = (self.screencols - message.len() as u16) / 2;
