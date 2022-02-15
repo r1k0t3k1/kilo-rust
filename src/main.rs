@@ -56,6 +56,7 @@ pub struct RawTerminal {
     cursor_y: u16,
     row: Vec<EditorRow>,
     row_offset: isize,
+    column_offset: isize,
 }
 
 pub struct EditorRow {
@@ -105,6 +106,7 @@ impl RawTerminal {
             cursor_y: 0,
             row: Vec::<EditorRow>::new(),
             row_offset: 0,
+            column_offset: 0,
         }
     }
 
@@ -171,7 +173,9 @@ impl RawTerminal {
         self.editor_scroll();
         self.append_buffer.append(b"\x1b[?25l\x1b[H".to_vec().as_mut());
         self.editor_draw_rows();
-        self.append_buffer.append(format!("\x1b[{};{}H",(self.cursor_y as isize - self.row_offset) + 1, self.cursor_x + 1)
+        self.append_buffer.append(format!("\x1b[{};{}H",
+                (self.cursor_y as isize - self.row_offset) + 1,
+                (self.cursor_x as isize - self.row_offset) + 1)
             .as_bytes()
             .to_vec()
             .as_mut());
@@ -200,7 +204,18 @@ impl RawTerminal {
                     self.append_buffer.append(&mut self.row[i as usize].chars.clone());
                 }
             } else {
-                self.append_buffer.append(&mut self.row[file_row].chars.clone());
+                let mut len = self.row[file_row].chars.len().saturating_sub(self.column_offset as usize);
+                if len > self.screencols as usize { len = self.screencols as usize }
+
+                let end = self.column_offset as usize + len - 1;
+
+                if self.column_offset < self.row[file_row].chars.len() as isize {
+                    let offset_text = &mut self.row[file_row]
+                        .chars
+                        .clone()[(self.column_offset as usize)..end]
+                        .to_vec();
+                    self.append_buffer.append(offset_text);
+                } 
             }
 
             if i < self.screenrows -1 {
@@ -251,9 +266,9 @@ impl RawTerminal {
     fn editor_move_cursor(&mut self, c: &EditorKey) {
         match c {
             EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), 
-            EditorKey::ArrowRight => if self.cursor_x < self.screencols.saturating_sub(1) { self.cursor_x += 1 },
+            EditorKey::ArrowRight => self.cursor_x += 1,
             EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
-            EditorKey::ArrowDown  => if (self.cursor_y as usize) < self.row.len() { self.cursor_y += 1 },
+            EditorKey::ArrowDown  => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
             EditorKey::Char(ch) => {
                 match ch {
                     119 => self.cursor_y = self.cursor_y.saturating_sub(1),
@@ -298,6 +313,12 @@ impl RawTerminal {
         }
         if self.cursor_y as isize >= self.row_offset + (self.screenrows as isize) {
             self.row_offset = (self.cursor_y - self.screenrows + 1) as isize; 
+        }
+        if (self.cursor_x as isize) < self.column_offset { 
+            self.column_offset = self.cursor_x as isize;
+        }
+        if (self.cursor_x as isize) >= self.column_offset + (self.screencols as isize) { 
+            self.column_offset = (self.cursor_x - self.screencols + 1) as isize;
         }
     }
 }
