@@ -112,7 +112,7 @@ impl RawTerminal {
 
 
     fn disable_raw_mode(&self) {
-       tcsetattr(self.stdin.as_raw_fd(), TCSAFLUSH, &self.preview_terminal).unwrap();
+       tcsetattr(self.stdin.as_raw_fd(), TCSANOW, &self.preview_terminal).unwrap();
     }
 
     fn editor_read_key(&mut self) -> Result<EditorKey,Error> {
@@ -156,6 +156,7 @@ impl RawTerminal {
     fn editor_process_keypress(&mut self) {
         let c = self.editor_read_key().unwrap();
         if c == ctrl('q') {
+            self.disable_raw_mode();
             process::exit(0);
         }
         self.editor_move_cursor(&c);
