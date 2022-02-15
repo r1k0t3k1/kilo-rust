@@ -3,7 +3,7 @@ use termios::*;
 use std::fs::File;
 use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error, BufReader, BufRead };
 use std::os::unix::io::AsRawFd;
-use std::{process, char, str, u8, env, isize};
+use std::{process, char, str, u8, env, isize, usize};
 
 const VERSION: &str = "0.0.1";
 
@@ -265,20 +265,17 @@ impl RawTerminal {
     }
 
     fn editor_move_cursor(&mut self, c: &EditorKey) {
+        let limit_row = if self.cursor_y as usize > self.row.len() {
+            0 
+        } else {
+            self.row[self.cursor_y as usize].chars.len()
+        };
+
         match c {
             EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), 
-            EditorKey::ArrowRight => self.cursor_x += 1,
+            EditorKey::ArrowRight => if (self.cursor_x as usize) < limit_row - 1  { self.cursor_x += 1 },
             EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
             EditorKey::ArrowDown  => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
-            EditorKey::Char(ch) => {
-                match ch {
-                    119 => self.cursor_y = self.cursor_y.saturating_sub(1),
-                    97  => self.cursor_x = self.cursor_x.saturating_sub(1),
-                    115 => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
-                    100 => if self.cursor_x < self.screencols.saturating_sub(1) { self.cursor_x += 1 },
-                    _ => (),
-                }
-            },
             EditorKey::PageDown => {
                 let mut times = self.screenrows;
                 while times > 0 {
