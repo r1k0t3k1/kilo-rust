@@ -3,7 +3,7 @@ use termios::*;
 use std::fs::File;
 use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error, BufReader, BufRead };
 use std::os::unix::io::AsRawFd;
-use std::{process, char, str, u8, env, isize, usize};
+use std::{process, char, str, u8, env, usize};
 
 const VERSION: &str = "0.0.1";
 
@@ -50,13 +50,13 @@ pub struct RawTerminal {
     stdin: Stdin,
     stdout: Stdout,
     append_buffer: Vec<u8>,
-    screencols: u16,
-    screenrows: u16,
-    cursor_x: u16,
-    cursor_y: u16,
+    screencols: usize,
+    screenrows: usize,
+    cursor_x: usize,
+    cursor_y: usize,
     row: Vec<EditorRow>,
-    row_offset: isize,
-    column_offset: isize,
+    row_offset: usize,
+    column_offset: usize,
 }
 
 pub struct EditorRow {
@@ -175,8 +175,8 @@ impl RawTerminal {
         self.append_buffer.append(b"\x1b[?25l\x1b[H".to_vec().as_mut());
         self.editor_draw_rows();
         self.append_buffer.append(format!("\x1b[{};{}H",
-                (self.cursor_y as isize - self.row_offset) + 1,
-                (self.cursor_x as isize - self.column_offset) + 1)
+                self.cursor_y - self.row_offset + 1,
+                self.cursor_x - self.column_offset + 1)
             .as_bytes()
             .to_vec()
             .as_mut());
@@ -188,13 +188,13 @@ impl RawTerminal {
     fn editor_draw_rows(&mut self) {
         for i in 0..self.screenrows {
             self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
-            let file_row = i as usize + self.row_offset as usize;
-            if i as isize + self.row_offset >= self.row.len() as isize {
-                if i >= self.row.len() as u16 {
+            let file_row = i + self.row_offset;
+            if i + self.row_offset >= self.row.len() {
+                if i >= self.row.len() {
                     if self.row.len() == 0 && i == self.screenrows / 3 {
                         let message = format!("riko editor -- version {}", VERSION); 
 
-                        let padding_count = (self.screencols - message.len() as u16) / 2;
+                        let padding_count = (self.screencols - message.len()) / 2;
                         for _i in 0..padding_count {
                             self.append_buffer.push(b' ');
                         }
@@ -202,18 +202,18 @@ impl RawTerminal {
                         self.append_buffer.append(message.into_bytes().as_mut());
                     }
                 } else {
-                    self.append_buffer.append(&mut self.row[i as usize].chars.clone());
+                    self.append_buffer.append(&mut self.row[i].chars.clone());
                 }
             } else {
-                let mut len = self.row[file_row].chars.len().saturating_sub(self.column_offset as usize);
-                if len > self.screencols as usize { len = self.screencols as usize }
+                let mut len = self.row[file_row].chars.len().saturating_sub(self.column_offset);
+                if len > self.screencols { len = self.screencols }
 
-                let end = self.column_offset as usize + len - 1;
+                let end = self.column_offset + len - 1;
 
-                if self.column_offset < self.row[file_row].chars.len() as isize {
+                if self.column_offset < self.row[file_row].chars.len() {
                     let offset_text = &mut self.row[file_row]
                         .chars
-                        .clone()[(self.column_offset as usize)..end]
+                        .clone()[(self.column_offset)..end]
                         .to_vec();
                     self.append_buffer.append(offset_text);
                 } 
@@ -225,13 +225,13 @@ impl RawTerminal {
         }
     }
 
-    fn get_terminal_size(&mut self) -> Option<(u16,u16)> {
+    fn get_terminal_size(&mut self) -> Option<(usize,usize)> {
         self.stdout.write_all(b"\x1b[999C\x1b[999B").unwrap();
         self.stdout.flush().unwrap();
         self.get_cursor_position()
     }
 
-    fn get_cursor_position(&mut self) -> Option<(u16,u16)> {
+    fn get_cursor_position(&mut self) -> Option<(usize,usize)> {
         self.stdout.write(b"\x1b[6n").unwrap();
         self.stdout.flush().unwrap();
 
@@ -249,8 +249,8 @@ impl RawTerminal {
 
         if buffer[0] != b'\x1b' || buffer[1] != b'[' { return None };
        
-        let mut row: u16 = 0;
-        let mut column: u16 = 0;
+        let mut row: usize = 0;
+        let mut column: usize = 0;
 
         let bracket_position = &buffer.iter().position(|&x| x == 91).expect("bracket_position");
         let semicolon_position = &buffer.iter().position(|&x| x == 59).expect("semicolon_position");
@@ -265,11 +265,19 @@ impl RawTerminal {
     }
 
     fn editor_move_cursor(&mut self, c: &EditorKey) {
+        let limit_x = if self.cursor_y == self.row.len() {
+            0
+        } else {
+            self.row[self.cursor_y].chars.len() - 1
+        };
+
+        let limit_y =self.row.len();
+
         match c {
             EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), 
-            EditorKey::ArrowRight => if (self.cursor_x as usize) < self.row[self.cursor_y as usize].chars.len() { self.cursor_x += 1 },
+            EditorKey::ArrowRight => if self.cursor_x < limit_x { self.cursor_x += 1 },
             EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
-            EditorKey::ArrowDown  => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
+            EditorKey::ArrowDown  => if self.cursor_y < limit_y { self.cursor_y += 1 },
             EditorKey::PageDown => {
                 let mut times = self.screenrows;
                 while times > 0 {
@@ -300,17 +308,17 @@ impl RawTerminal {
     }
 
     fn editor_scroll(&mut self) {
-        if (self.cursor_y as isize) < self.row_offset {
-            self.row_offset = self.cursor_y as isize;
+        if self.cursor_y < self.row_offset {
+            self.row_offset = self.cursor_y;
         }
-        if self.cursor_y as isize >= self.row_offset + (self.screenrows as isize) {
-            self.row_offset = (self.cursor_y - self.screenrows + 1) as isize; 
+        if self.cursor_y >= self.row_offset + self.screenrows {
+            self.row_offset = self.cursor_y - self.screenrows + 1; 
         }
-        if (self.cursor_x as isize) < self.column_offset { 
-            self.column_offset = self.cursor_x as isize;
+        if self.cursor_x < self.column_offset { 
+            self.column_offset = self.cursor_x;
         }
-        if (self.cursor_x as isize) >= self.column_offset + (self.screencols as isize) { 
-            self.column_offset = (self.cursor_x - self.screencols + 1) as isize;
+        if self.cursor_x >= self.column_offset + self.screencols { 
+            self.column_offset = self.cursor_x - self.screencols + 1;
         }
     }
 }
