@@ -7,6 +7,8 @@ use std::{process, char, str, u8, env, usize};
 
 const VERSION: &str = "0.0.1";
 
+mod editor;
+
 #[derive(PartialEq)]
 pub enum EditorKey {
     Char(u8),
@@ -235,17 +237,19 @@ impl RawTerminal {
         self.stdout.write(b"\x1b[6n").unwrap();
         self.stdout.flush().unwrap();
 
-        let mut buffer = [0u8;32];
+        //let mut buffer = [0u8;32];
+        let mut buffer = Vec::<u8>::new();
+        self.stdin.read_to_end(&mut buffer);
 
-        for i in 0..buffer.len() {
-            let mut c = [0u8;1];
-            if self.stdin.read(&mut c).is_err() { break; };
-            if c[0] == 82 { 
-                buffer[i] = c[0];
-                break; 
-            };
-            buffer[i] = c[0];
-        }
+//        for i in 0..buffer.len() {
+//            let mut c = [0u8;1];
+//            if self.stdin.read(&mut c).is_err() { break; };
+//            if c[0] == 82 { 
+//                buffer[i] = c[0];
+//                break; 
+//            };
+//            buffer[i] = c[0];
+//        }
 
         if buffer[0] != b'\x1b' || buffer[1] != b'[' { return None };
        
