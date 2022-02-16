@@ -176,7 +176,7 @@ impl RawTerminal {
         self.editor_draw_rows();
         self.append_buffer.append(format!("\x1b[{};{}H",
                 (self.cursor_y as isize - self.row_offset) + 1,
-                (self.cursor_x as isize - self.row_offset) + 1)
+                (self.cursor_x as isize - self.column_offset) + 1)
             .as_bytes()
             .to_vec()
             .as_mut());
@@ -265,15 +265,9 @@ impl RawTerminal {
     }
 
     fn editor_move_cursor(&mut self, c: &EditorKey) {
-        let limit_row = if self.cursor_y as usize > self.row.len() {
-            0 
-        } else {
-            self.row[self.cursor_y as usize].chars.len()
-        };
-
         match c {
             EditorKey::ArrowLeft  => self.cursor_x = self.cursor_x.saturating_sub(1), 
-            EditorKey::ArrowRight => if (self.cursor_x as usize) < limit_row - 1  { self.cursor_x += 1 },
+            EditorKey::ArrowRight => if (self.cursor_x as usize) < self.row[self.cursor_y as usize].chars.len() { self.cursor_x += 1 },
             EditorKey::ArrowUp    => self.cursor_y = self.cursor_y.saturating_sub(1),
             EditorKey::ArrowDown  => if self.cursor_y < self.screenrows.saturating_sub(1) { self.cursor_y += 1 },
             EditorKey::PageDown => {
