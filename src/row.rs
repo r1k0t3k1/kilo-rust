@@ -1,3 +1,3 @@
 pub struct EditorRow {
-    chars: Vec<u8>,
+   pub chars: Vec<u8>,
 }
