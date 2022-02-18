@@ -1,8 +1,8 @@
 use std::fs::File;
-use std::io::{stdin, stdout, Read, Write, Stdin, Stdout, Error, BufReader, BufRead };
+use std::io::{stdin, stdout, Write, Stdin, Stdout, BufReader, BufRead };
 use std::{process, str, u8, env, usize};
 use terminal_io::EnableRawMode;
-use key::
+use key::ReadKey;
 
 mod terminal_io;
 mod window;
@@ -36,11 +36,14 @@ fn main() {
         let filename = &args[1];
         raw_terminal.editor_open(&filename);
     }
-        
-
-    loop {
+    
+    for c in stdin().keys() {
+        if let Ok(key::EditorKey::Ctrl(113)) = c { 
+            raw_terminal.stdout.suspend_raw_mode().unwrap();
+            process::exit(0); 
+        }
+        raw_terminal.editor_move_cursor(&c.unwrap());
         raw_terminal.editor_refresh_screen();
-        raw_terminal.editor_process_keypress();
     }
 }
 
@@ -58,61 +61,6 @@ pub struct RawTerminal {
 }
 
 impl RawTerminal {
-    fn editor_read_key(&mut self) -> Result<key::EditorKey,Error> {
-       let mut c = [0_u8;4]; 
-       self.stdin.read(&mut c)?;
-       if c[0] == 27 {
-            if c[1] == 91 {
-                if c[3] == 126 {
-                    match c[2] {
-                        49 => return Ok(key::EditorKey::Home),
-                        51 => return Ok(key::EditorKey::Delete),
-                        52 => return Ok(key::EditorKey::End),
-                        53 => return Ok(key::EditorKey::PageUp),
-                        54 => return Ok(key::EditorKey::PageDown),
-                        55 => return Ok(key::EditorKey::Home),
-                        56 => return Ok(key::EditorKey::End),
-                        _ => (),
-                    }
-                }
-                match c[2] {
-                    65 => return Ok(key::EditorKey::ArrowUp),
-                    66 => return Ok(key::EditorKey::ArrowDown),
-                    67 => return Ok(key::EditorKey::ArrowRight),
-                    68 => return Ok(key::EditorKey::ArrowLeft),
-                    70 => return Ok(key::EditorKey::End),
-                    72 => return Ok(key::EditorKey::Home),
-                    _  => (),
-                }
-            }
-            return Ok(key::EditorKey::Escape);
-       } else if c[0] == 79 {
-           match c[1] {
-                70 => return Ok(key::EditorKey::End),
-                72 => return Ok(key::EditorKey::Home),
-                _  => (),
-           }
-       } 
-       Ok(key::EditorKey::Char(c[0]))
-    }
-
-    fn editor_process_keypress(&mut self) {
-        let c = self.editor_read_key().unwrap();
-        if c == key::ctrl('q') {
-            self.stdout.suspend_raw_mode().unwrap();
-            process::exit(0);
-        }
-        self.editor_move_cursor(&c);
-        match c {
-            key::EditorKey::Char(ch) => {
-                let byte = [ch;1];
-                self.stdout.output.write(&byte).unwrap();}
-            key::EditorKey::Home => self.cursor_x = 0,
-            key::EditorKey::End  => self.cursor_x = self.screencols - 1,
-            _ => (),
-        }
-    }
-
     fn editor_refresh_screen(&mut self) {
         self.editor_scroll();
         self.append_buffer.append(b"\x1b[?25l\x1b[H".to_vec().as_mut());
