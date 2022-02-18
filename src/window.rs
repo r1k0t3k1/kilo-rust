@@ -26,8 +26,8 @@ where R: Read, W: Write {
     let r_position = &buffer.iter().position(|&x| x == 82).unwrap();
 
     if let Ok(s) = str::from_utf8(&buffer) {
-        x = s[bracket_position+1..*semicolon_position].parse().unwrap();
-        y = s[semicolon_position+1..*r_position].parse().unwrap();
+        y = s[bracket_position+1..*semicolon_position].parse().unwrap();
+        x = s[semicolon_position+1..*r_position].parse().unwrap();
     } 
     Ok((x,y))
 }
