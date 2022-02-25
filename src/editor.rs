@@ -69,7 +69,16 @@ impl Editor {
         }
 
         match key {
-            key::EditorKey::ArrowLeft  => self.cursor_position.x = self.cursor_position.x.saturating_sub(1), 
+            key::EditorKey::ArrowLeft  => {
+                if self.cursor_position.x == 0 {
+                    if self.cursor_position.y > 0 {
+                        self.cursor_position.y -= 1;
+                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
+                    }
+                }else {
+                    self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
+                }
+            }
             key::EditorKey::ArrowRight => if self.cursor_position.x < limit_x { self.cursor_position.x += 1 },
             key::EditorKey::ArrowUp    => {
                 if self.rows.len() == self.cursor_position.y { 
