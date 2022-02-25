@@ -24,7 +24,7 @@ fn main() {
     }
     
     for c in stdin().keys() {
-        if let Ok(key::EditorKey::Ctrl(113)) = c { 
+        if let Ok(key::EditorKey::Ctrl(b'Q')) = c { 
             t.suspend_raw_mode().unwrap();
             process::exit(0); 
         }
