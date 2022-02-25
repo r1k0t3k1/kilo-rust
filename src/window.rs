@@ -1,4 +1,4 @@
-use std::io::{self,Read,Write};
+use std::io::{self,Read,Write, stdin};
 use std::str;
 
 pub fn get_size<R,W>(input: &mut R, output: &mut W) -> io::Result<(usize,usize)>

@@ -8,9 +8,10 @@ pub struct Editor {
     stdin: Stdin,
     stdout: Stdout,
     append_buffer: Vec<u8>,
-    pub cursor_position: Position,
+    cursor_position: Position,
     rows: Vec<EditorRow>,
     offset: Position,
+    window_size: Position,
 }
 
 pub struct Position {
@@ -25,13 +26,18 @@ impl Position {
 
 impl Editor {
    pub fn new() -> Editor {
+        let mut stdin = stdin();
+        let mut stdout = stdout();
+        
+        let window_size = window::get_size(&mut stdin, &mut stdout).unwrap();
         Editor {
-            stdin: stdin(),
-            stdout: stdout(),
+            stdin: stdin,
+            stdout: stdout,
             append_buffer: Vec::new(),
             cursor_position: Position::new(0, 0),
             rows: Vec::new(),
             offset: Position::new(0, 0),
+            window_size: Position::new(window_size.0, window_size.1),
         }
    } 
 
@@ -67,13 +73,6 @@ impl Editor {
             key::EditorKey::ArrowRight => if self.cursor_position.x < limit_x { self.cursor_position.x += 1 },
             key::EditorKey::ArrowUp    => self.cursor_position.y = self.cursor_position.y.saturating_sub(1),
             key::EditorKey::ArrowDown  => if self.cursor_position.y < limit_y { self.cursor_position.y += 1 },
-            //key::EditorKey::PageDown => {
-            //    let mut times = self.screenrows;
-            //    while times > 0 {
-            //        self.cursor_y = self.cursor_y.saturating_sub(1);
-            //        times -= 1;
-            //    };
-            //}
             _ => (),
         }
    }
@@ -94,15 +93,14 @@ impl Editor {
    }
 
    pub fn draw_rows(&mut self) {
-        let position = window::get_size(&mut self.stdin, &mut self.stdout).unwrap();
-        for i in 0..position.1 {
-            self.append_buffer.append(format!("~{}\x1b[K",&i).as_bytes().to_vec().as_mut());
+        for i in 0..self.window_size.y {
+            self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
             let file_row = i + self.offset.y;
             if file_row >= self.rows.len() {
                 if i >= self.rows.len() {
-                    if self.rows.len() == 0 && i == position.1 / 3 {
+                    if self.rows.len() == 0 && i == self.window_size.y / 3 {
                         let message = format!("riko editor -- version 0.0.1");
-                        let padding = (position.0 - message.len()) / 2;
+                        let padding = (self.window_size.x - message.len()) / 2;
                         for _ in 0..padding {
                             self.append_buffer.push(b' ');
                         }
@@ -113,7 +111,7 @@ impl Editor {
                 }
             } else {
                 let mut len = self.rows[file_row].chars.len().saturating_sub(self.offset.x);
-                if len > position.0 { len = position.0}
+                if len > self.window_size.x { len = self.window_size.x }
 
                 let end = self.offset.x + len - 1;
 
@@ -125,25 +123,24 @@ impl Editor {
                     self.append_buffer.append(offset_text);
                 }
             }
-            if i < position.1 - 1 {
+            if i < self.window_size.y - 1 {
                 self.append_buffer.append(b"\r\n".to_vec().as_mut());
             }
         }
    }
 
    fn scroll(&mut self) {
-        let position = window::get_size(&mut self.stdin, &mut self.stdout).unwrap();
         if self.cursor_position.y < self.offset.y {
             self.offset.y = self.cursor_position.y;
         }
-        if self.cursor_position.y >= self.offset.y + position.1 {
-            self.offset.y = self.cursor_position.y - position.1 + 1;
+        if self.cursor_position.y >= self.offset.y + self.window_size.y {
+            self.offset.y = self.cursor_position.y - self.window_size.y + 1;
         }
         if self.cursor_position.x < self.offset.x {
             self.offset.x = self.cursor_position.x;
         }
-        if self.cursor_position.x >= self.offset.x + position.0 {
-            self.offset.x = self.cursor_position.x - position.0 + 1;
+        if self.cursor_position.x >= self.offset.x + self.window_size.x {
+            self.offset.x = self.cursor_position.x - self.window_size.x + 1;
         }
 
    }
