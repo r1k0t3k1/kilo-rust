@@ -71,7 +71,18 @@ impl Editor {
         match key {
             key::EditorKey::ArrowLeft  => self.cursor_position.x = self.cursor_position.x.saturating_sub(1), 
             key::EditorKey::ArrowRight => if self.cursor_position.x < limit_x { self.cursor_position.x += 1 },
-            key::EditorKey::ArrowUp    => self.cursor_position.y = self.cursor_position.y.saturating_sub(1),
+            key::EditorKey::ArrowUp    => {
+                if self.rows.len() == self.cursor_position.y { 
+                    self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
+                    return;
+                }
+                if self.cursor_position.x > self.rows[self.cursor_position.y.saturating_sub(1)].chars.len() {
+                    self.cursor_position.x = self.rows[self.cursor_position.y.saturating_sub(1)].chars.len();
+                    self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
+                    return;
+                }
+                self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
+            }
             key::EditorKey::ArrowDown  => if self.cursor_position.y < limit_y { self.cursor_position.y += 1 },
             _ => (),
         }
