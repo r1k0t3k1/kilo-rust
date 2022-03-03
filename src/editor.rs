@@ -50,7 +50,6 @@ impl Editor {
             line.push_str("\r");
             self.append_row(row::EditorRow {
                 chars: line.into_bytes(),
-                rsize: 0,
                 render: vec!(),
             });
        } 
@@ -144,18 +143,19 @@ impl Editor {
                     self.append_buffer.append(&mut self.rows[i].chars.clone());
                 }
             } else {
-                let mut len = self.rows[file_row].chars.len().saturating_sub(self.offset.x);
+                let mut len = self.rows[file_row].render.len().saturating_sub(self.offset.x);
                 if len > self.window_size.x { len = self.window_size.x }
 
-                let end = self.offset.x + len - 1;
+                let end = (self.offset.x + len).saturating_sub(1);
+                self.append_buffer.append(self.rows[file_row].render[self.offset.x..end].to_vec().as_mut());
 
-                if self.offset.x < self.rows[file_row].chars.len() {
-                    let offset_text = &mut self.rows[file_row]
-                        .chars
-                        .clone()[(self.offset.x)..end]
-                        .to_vec();
-                    self.append_buffer.append(offset_text);
-                }
+                //if self.offset.x < self.rows[file_row].chars.len() {
+                //    let offset_text = &mut self.rows[file_row]
+                //        .chars
+                //        .clone()[(self.offset.x)..end]
+                //        .to_vec();
+                //    self.append_buffer.append(offset_text);
+                //}
             }
             if i < self.window_size.y - 1 {
                 self.append_buffer.append(b"\r\n".to_vec().as_mut());
@@ -191,7 +191,6 @@ impl Editor {
 
        let mut row = EditorRow {
             chars: vec!(),
-            rsize: 0,
             render: vec!(),
        };
 
@@ -201,7 +200,6 @@ impl Editor {
            index += 1;
        }
        row.render.push(0);
-       row.rsize = last.render.len();
        last = &row;
    }
 }
