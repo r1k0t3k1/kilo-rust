@@ -1,5 +1,6 @@
 use std::io::{self, Stdin, Stdout, stdin, stdout, Write, BufReader, BufRead};
 use std::fs::File;
+use std::vec;
 
 use crate::row::{EditorRow, self};
 use crate::{key, window};
@@ -47,7 +48,11 @@ impl Editor {
        for row in BufReader::new(file).lines() {
             let mut line = row?;
             line.push_str("\r");
-            self.rows.push(row::EditorRow { chars: line.into_bytes() });
+            self.append_row(row::EditorRow {
+                chars: line.into_bytes(),
+                rsize: 0,
+                render: vec!(),
+            });
        } 
        Ok(())
    }
@@ -172,5 +177,31 @@ impl Editor {
             self.offset.x = self.cursor_position.x - self.window_size.x + 1;
         }
 
+   }
+
+   fn append_row(&mut self, row: EditorRow) {
+       self.rows.push(row);
+       self.update_row();
+   }
+
+   fn update_row(&mut self) {
+       let mut last = self.rows.last().unwrap();
+
+       let mut index = 0;
+
+       let mut row = EditorRow {
+            chars: vec!(),
+            rsize: 0,
+            render: vec!(),
+       };
+
+       for c in 0..last.chars.len() {
+           row.render.push(0);
+           row.render[index] = last.chars[c];
+           index += 1;
+       }
+       row.render.push(0);
+       row.rsize = last.render.len();
+       last = &row;
    }
 }
