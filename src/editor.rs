@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::io::{self, Stdin, Stdout, stdin, stdout, Write, BufReader, BufRead};
 use std::fs::File;
 use std::vec;
@@ -13,6 +12,7 @@ pub struct Editor {
     stdout: Stdout,
     append_buffer: Vec<u8>,
     cursor_position: Position,
+    render_cursor_position: Position, 
     rows: Vec<EditorRow>,
     offset: Position,
     window_size: Position,
@@ -38,7 +38,8 @@ impl Editor {
             stdin: stdin,
             stdout: stdout,
             append_buffer: Vec::new(),
-            cursor_position: Position::new(0, 0),
+            cursor_position: Position::new(1, 0),
+            render_cursor_position: Position::new(1, 0),
             rows: Vec::new(),
             offset: Position::new(0, 0),
             window_size: Position::new(window_size.0, window_size.1),
@@ -67,7 +68,7 @@ impl Editor {
             limit_y = 0;
         } else {
             limit_x = if self.cursor_position.y == self.rows.len() {
-                0
+                1
             } else {
                 self.rows[self.cursor_position.y].chars.len() - 1
             };
@@ -77,7 +78,7 @@ impl Editor {
 
         match key {
             key::EditorKey::ArrowLeft  => {
-                if self.cursor_position.x == 0 {
+                if self.cursor_position.x == 1 {
                     if self.cursor_position.y > 0 {
                         self.cursor_position.y -= 1;
                         self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
@@ -92,7 +93,7 @@ impl Editor {
                         self.cursor_position.x += 1 
                     } else {
                         self.cursor_position.y += 1;
-                        self.cursor_position.x = 0;
+                        self.cursor_position.x = 1;
                     }
                 }
             }
@@ -119,7 +120,7 @@ impl Editor {
        self.draw_rows();
        self.append_buffer.append(format!("\x1b[{};{}H",
                self.cursor_position.y - self.offset.y + 1,
-               self.cursor_position.x - self.offset.x + 1)
+               self.render_cursor_position.x - self.offset.x + 1)
            .as_bytes()
            .to_vec()
            .as_mut());
@@ -159,17 +160,21 @@ impl Editor {
    }
 
    fn scroll(&mut self) {
+        self.render_cursor_position.x = 0;
+        if self.cursor_position.y < self.rows.len() {
+            self.cursol2render_cursol();
+        }
         if self.cursor_position.y < self.offset.y {
             self.offset.y = self.cursor_position.y;
         }
         if self.cursor_position.y >= self.offset.y + self.window_size.y {
             self.offset.y = self.cursor_position.y - self.window_size.y + 1;
         }
-        if self.cursor_position.x < self.offset.x {
-            self.offset.x = self.cursor_position.x;
+        if self.render_cursor_position.x < self.offset.x {
+            self.offset.x = self.render_cursor_position.x;
         }
-        if self.cursor_position.x >= self.offset.x + self.window_size.x {
-            self.offset.x = self.cursor_position.x - self.window_size.x + 1;
+        if self.render_cursor_position.x >= self.offset.x + self.window_size.x {
+            self.offset.x = self.render_cursor_position.x - self.window_size.x + 1;
         }
 
    }
@@ -190,5 +195,16 @@ impl Editor {
             }
        }
        last.render.push(0);
+   }
+
+   fn cursol2render_cursol(&mut self) {
+        let mut tab_count = 0;
+        for i in 0..self.cursor_position.x-1 {
+            if self.rows[self.cursor_position.y].chars[i] == 9 {
+                tab_count += 1;
+            }
+        }
+        let rx = self.cursor_position.x + (TAB_STOP * tab_count) - tab_count;
+        self.render_cursor_position.x = rx;
    }
 }
