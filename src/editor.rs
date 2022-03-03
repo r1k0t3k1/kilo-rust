@@ -1,9 +1,12 @@
+use std::fmt::format;
 use std::io::{self, Stdin, Stdout, stdin, stdout, Write, BufReader, BufRead};
 use std::fs::File;
 use std::vec;
 
 use crate::row::{EditorRow, self};
 use crate::{key, window};
+
+const TAB_STOP: usize = 4;
 
 pub struct Editor {
     stdin: Stdin,
@@ -148,14 +151,6 @@ impl Editor {
 
                 let end = (self.offset.x + len).saturating_sub(1);
                 self.append_buffer.append(self.rows[file_row].render[self.offset.x..end].to_vec().as_mut());
-
-                //if self.offset.x < self.rows[file_row].chars.len() {
-                //    let offset_text = &mut self.rows[file_row]
-                //        .chars
-                //        .clone()[(self.offset.x)..end]
-                //        .to_vec();
-                //    self.append_buffer.append(offset_text);
-                //}
             }
             if i < self.window_size.y - 1 {
                 self.append_buffer.append(b"\r\n".to_vec().as_mut());
@@ -185,21 +180,15 @@ impl Editor {
    }
 
    fn update_row(&mut self) {
-       let mut last = self.rows.last().unwrap();
-
-       let mut index = 0;
-
-       let mut row = EditorRow {
-            chars: vec!(),
-            render: vec!(),
-       };
+       let last = self.rows.last_mut().unwrap();
 
        for c in 0..last.chars.len() {
-           row.render.push(0);
-           row.render[index] = last.chars[c];
-           index += 1;
+            if last.chars[c] == 9 {
+                for _ in 0..TAB_STOP { last.render.push(32) }
+            } else {
+                last.render.push(last.chars[c]);
+            }
        }
-       row.render.push(0);
-       last = &row;
+       last.render.push(0);
    }
 }
