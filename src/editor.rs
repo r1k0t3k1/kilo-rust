@@ -42,7 +42,7 @@ impl Editor {
             render_cursor_position: Position::new(1, 0),
             rows: Vec::new(),
             offset: Position::new(0, 0),
-            window_size: Position::new(window_size.0, window_size.1),
+            window_size: Position::new(window_size.0, window_size.1 - 1),
         }
    } 
 
@@ -125,7 +125,14 @@ impl Editor {
                 }
                 self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
             }
-            key::EditorKey::ArrowDown  => if self.cursor_position.y < limit_y { self.cursor_position.y += 1 },
+            key::EditorKey::ArrowDown  => {
+                if self.cursor_position.y < limit_y { 
+                    self.cursor_position.y += 1;
+                };
+                if self.cursor_position.x > self.rows[self.cursor_position.y].chars.len() {
+                    self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
+                }
+            },
             _ => (),
         }
    }
@@ -169,9 +176,7 @@ impl Editor {
                 let end = (self.offset.x + len).saturating_sub(1);
                 self.append_buffer.append(self.rows[file_row].render[self.offset.x..end].to_vec().as_mut());
             }
-            if i < self.window_size.y - 1 {
-                self.append_buffer.append(b"\r\n".to_vec().as_mut());
-            }
+            self.append_buffer.append(b"\r\n".to_vec().as_mut());
         }
    }
 
@@ -214,12 +219,15 @@ impl Editor {
    }
 
    fn cursol2render_cursol(&mut self) {
-        let mut tab_count = 0;
-        for i in 0..self.cursor_position.x-1 {
-            if self.rows[self.cursor_position.y].chars[i] == 9 {
-                tab_count += 1;
-            }
+        let limit: usize;
+        if self.rows[self.cursor_position.y].chars.len() < self.cursor_position.x { 
+            limit = self.rows[self.cursor_position.y].chars.len();
+        } else {
+            limit = self.cursor_position.x;
         }
+        let tab_count = self.rows[self.cursor_position.y].chars[0..limit]
+            .iter()
+            .filter(|&tab| *tab == 9).count();
         let rx = self.cursor_position.x + (TAB_STOP * tab_count) - tab_count;
         self.render_cursor_position.x = rx;
    }
