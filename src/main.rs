@@ -13,6 +13,9 @@ mod row;
 
 //const VERSION: &str = "0.0.1";
 
+// エスケープシーケンス参考
+// https://docs.microsoft.com/ja-jp/windows/console/console-virtual-terminal-sequences#input-sequences
+
 fn main() {
     let t = stdout().enable_raw_mode().unwrap(); 
     let mut editor = Editor::new();
