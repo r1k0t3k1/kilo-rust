@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout};
+use std::io::{stdin, stdout, Write};
 use std::{process, env};
 use editor::Editor;
 use terminal_io::EnableRawMode;
@@ -17,7 +17,7 @@ mod row;
 // https://docs.microsoft.com/ja-jp/windows/console/console-virtual-terminal-sequences#input-sequences
 
 fn main() {
-    let t = stdout().enable_raw_mode().unwrap(); 
+    let mut t = stdout().enable_raw_mode().unwrap(); 
     let mut editor = Editor::new();
 
     let args: Vec<String> = env::args().collect();
@@ -32,6 +32,8 @@ fn main() {
         let key = c.unwrap();
         match key {
             key::EditorKey::Ctrl(b'Q') => {
+                t.output.write(b"\x1b[2J".to_vec().as_mut()).unwrap();
+                t.output.write(b"\x1b[0G\x1b[0d".to_vec().as_mut()).unwrap();
                 t.suspend_raw_mode().unwrap();
                 process::exit(0); 
             }

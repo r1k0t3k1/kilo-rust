@@ -160,7 +160,7 @@ impl Editor {
 
    pub fn draw_rows(&mut self) {
         for i in 0..self.window_size.y {
-            self.append_buffer.append(b"~\x1b[K".to_vec().as_mut());
+            self.append_buffer.append(b"\x1b[48;5;236m~\x1b[m\x1b[K".to_vec().as_mut());
             let file_row = i + self.offset.y;
             if file_row >= self.rows.len() {
                 if i >= self.rows.len() {
