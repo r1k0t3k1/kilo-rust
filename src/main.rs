@@ -36,7 +36,8 @@ fn main() {
                 t.output.write(b"\x1b[0G\x1b[0d".to_vec().as_mut()).unwrap();
                 t.suspend_raw_mode().unwrap();
                 process::exit(0); 
-            }
+            },
+            key::EditorKey::Char(_) => editor.process_keypress(&key),
             key::EditorKey::PageUp => editor.process_keypress(&key),
             key::EditorKey::PageDown => editor.process_keypress(&key),
             key::EditorKey::End => editor.process_keypress(&key),

@@ -66,6 +66,7 @@ impl Editor {
 
    pub fn process_keypress(&mut self, key: &key::EditorKey) {
         match key {
+            &key::EditorKey::Char(c) => self.insert_char(c),
             &key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
             &key::EditorKey::PageDown => {
                 self.cursor_position.y = self.offset.y + self.window_size.y - 1;
@@ -260,5 +261,12 @@ impl Editor {
             .filter(|&tab| *tab == 9).count();
         let rx = self.cursor_position.x + (TAB_STOP * tab_count) - tab_count;
         self.render_cursor_position.x = rx;
+   }
+
+   fn insert_char(&mut self, char: u8) {
+        self.rows[self.cursor_position.y].chars.insert(self.cursor_position.x, char);
+        self.rows[self.cursor_position.y].render.insert(self.render_cursor_position.x, char);
+        self.cursor_position.x += 1;
+        self.render_cursor_position.x += 1;
    }
 }

@@ -43,7 +43,7 @@ impl<R: Read> InputKeys<R> {
             0x01..=0x1a => Ok(EditorKey::Ctrl(b + 64_u8)),
             0x1b => self.parse_escape_sequence(), // start escape sequence
             0x1c..=0x1f => Ok(EditorKey::Ctrl(b + 64_u8)),
-            b' '..=b'~' => Ok(EditorKey::Char(b)), // ASCII code
+            0x20..=0x7e => Ok(EditorKey::Char(b)), // ASCII code
             0x7f => Ok(EditorKey::Delete),
             _ => Ok(EditorKey::Undefined),
         }
