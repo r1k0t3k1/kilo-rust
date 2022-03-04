@@ -16,6 +16,7 @@ pub struct Editor {
     rows: Vec<EditorRow>,
     offset: Position,
     window_size: Position,
+    status_message: String,
     current_file_name: String,
 }
 
@@ -43,7 +44,8 @@ impl Editor {
             render_cursor_position: Position::new(1, 0),
             rows: Vec::new(),
             offset: Position::new(0, 0),
-            window_size: Position::new(window_size.0, window_size.1 - 1),
+            window_size: Position::new(window_size.0, window_size.1 - 2),
+            status_message: "".to_string(),
             current_file_name: "[NO NAME]".to_string(),
         }
    } 
@@ -185,7 +187,7 @@ impl Editor {
    }
 
     fn draw_status_bar(&mut self) {
-        self.append_buffer.append(b"\x1b[7m".to_vec().as_mut());
+        self.append_buffer.append(b"\x1b[48;5;245m".to_vec().as_mut());
         
         let mut status_text = format!("{}:r{}:c{}",
             self.current_file_name,
@@ -196,7 +198,15 @@ impl Editor {
             status_text.push(' ');
         }
         self.append_buffer.append(status_text.as_bytes().to_vec().as_mut());
+        self.append_buffer.append(b"\r\n".to_vec().as_mut());
         self.append_buffer.append(b"\x1b[m".to_vec().as_mut());
+
+        self.append_buffer.append(b"\x1b[K".to_vec().as_mut());
+        self.append_buffer.append(self.status_message.as_bytes().to_vec().as_mut());
+    }
+
+    pub fn set_status_message(&mut self, message: String) {
+       self.status_message = message; 
     }
 
    fn scroll(&mut self) {

@@ -22,6 +22,8 @@ fn main() {
         let filename = &args[1];
         editor.open_file(&filename).unwrap();
     }
+
+    editor.set_status_message("HELP: Ctrl-Q => Quit".to_string());
     
     for c in stdin().keys() {
         let key = c.unwrap();
