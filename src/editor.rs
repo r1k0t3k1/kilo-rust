@@ -16,6 +16,7 @@ pub struct Editor {
     rows: Vec<EditorRow>,
     offset: Position,
     window_size: Position,
+    current_file_name: String,
 }
 
 pub struct Position {
@@ -43,12 +44,13 @@ impl Editor {
             rows: Vec::new(),
             offset: Position::new(0, 0),
             window_size: Position::new(window_size.0, window_size.1 - 1),
+            current_file_name: "[NO NAME]".to_string(),
         }
    } 
 
    pub fn open_file(&mut self, filename: &String) -> io::Result<()> {
-       let file = File::open(filename)?;
-       
+       let file = File::open(&filename)?;
+       self.current_file_name = filename.clone(); 
        for row in BufReader::new(file).lines() {
             let mut line = row?;
             line.push_str("\r");
@@ -104,7 +106,7 @@ impl Editor {
                 }
             }
             key::EditorKey::ArrowRight => {
-                if self.cursor_position.y < self.rows.len() {
+                if self.cursor_position.y < self.rows.len() - 1 {
                     if self.cursor_position.x < limit_x { 
                         self.cursor_position.x += 1 
                     } else {
@@ -128,10 +130,10 @@ impl Editor {
             key::EditorKey::ArrowDown  => {
                 if self.cursor_position.y < limit_y { 
                     self.cursor_position.y += 1;
+                    if self.cursor_position.x > self.rows[self.cursor_position.y].chars.len() {
+                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
+                    }
                 };
-                if self.cursor_position.x > self.rows[self.cursor_position.y].chars.len() {
-                    self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
-                }
             },
             _ => (),
         }
@@ -151,6 +153,7 @@ impl Editor {
         self.append_buffer.append(b"\x1b[?25h".to_vec().as_mut());
         self.stdout.write_all(self.append_buffer.as_slice()).unwrap();
         self.stdout.flush().unwrap();
+        self.append_buffer = vec!();
    }
 
    pub fn draw_rows(&mut self) {
@@ -183,9 +186,16 @@ impl Editor {
 
     fn draw_status_bar(&mut self) {
         self.append_buffer.append(b"\x1b[7m".to_vec().as_mut());
-        for _ in 0..self.window_size.x {
-            self.append_buffer.append(b" ".to_vec().as_mut());
+        
+        let mut status_text = format!("{}:r{}:c{}",
+            self.current_file_name,
+            self.cursor_position.y,
+            self.render_cursor_position.x,
+        );
+        for _ in 0..self.window_size.x - status_text.len(){
+            status_text.push(' ');
         }
+        self.append_buffer.append(status_text.as_bytes().to_vec().as_mut());
         self.append_buffer.append(b"\x1b[m".to_vec().as_mut());
     }
 
