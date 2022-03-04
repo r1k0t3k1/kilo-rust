@@ -60,6 +60,22 @@ impl Editor {
        Ok(())
    }
 
+   pub fn process_keypress(&mut self, key: &key::EditorKey) {
+        match key {
+            &key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
+            &key::EditorKey::PageDown => {
+                self.cursor_position.y = self.offset.y + self.window_size.y - 1;
+                if self.cursor_position.y > self.rows.len() { self.cursor_position.y = self.rows.len() };
+            },
+            &key::EditorKey::End => {
+                if self.cursor_position.y == self.rows.len() {
+                    self.cursor_position.x = self.rows[self.cursor_position.y].chars.len()
+                };
+            },
+            _ => (),
+        }
+   }
+
    pub fn move_cursor(&mut self, key: &key::EditorKey) {
         let limit_x;
         let limit_y;

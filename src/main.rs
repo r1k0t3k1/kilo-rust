@@ -24,11 +24,18 @@ fn main() {
     }
     
     for c in stdin().keys() {
-        if let Ok(key::EditorKey::Ctrl(b'Q')) = c { 
-            t.suspend_raw_mode().unwrap();
-            process::exit(0); 
+        let key = c.unwrap();
+        match key {
+            key::EditorKey::Ctrl(b'Q') => {
+                t.suspend_raw_mode().unwrap();
+                process::exit(0); 
+            }
+            key::EditorKey::PageUp => editor.process_keypress(&key),
+            key::EditorKey::PageDown => editor.process_keypress(&key),
+            key::EditorKey::End => editor.process_keypress(&key),
+            _ => (),
         }
-        editor.move_cursor(&c.unwrap());
+        editor.move_cursor(&key);
         editor.refresh_screen();
     }
 }
