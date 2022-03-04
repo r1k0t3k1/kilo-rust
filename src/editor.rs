@@ -40,8 +40,8 @@ impl Editor {
             stdin: stdin,
             stdout: stdout,
             append_buffer: Vec::new(),
-            cursor_position: Position::new(1, 0),
-            render_cursor_position: Position::new(1, 0),
+            cursor_position: Position::new(0, 0),
+            render_cursor_position: Position::new(0, 0),
             rows: Vec::new(),
             offset: Position::new(0, 0),
             window_size: Position::new(window_size.0, window_size.1 - 2),
@@ -88,7 +88,7 @@ impl Editor {
             limit_y = 0;
         } else {
             limit_x = if self.cursor_position.y == self.rows.len() {
-                1
+                0
             } else {
                 self.rows[self.cursor_position.y].chars.len() - 1
             };
@@ -98,22 +98,22 @@ impl Editor {
 
         match key {
             key::EditorKey::ArrowLeft  => {
-                if self.cursor_position.x == 1 {
+                if self.cursor_position.x == 0 {
                     if self.cursor_position.y > 0 {
                         self.cursor_position.y -= 1;
-                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
+                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len() - 1;
                     }
                 }else {
                     self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
                 }
             }
             key::EditorKey::ArrowRight => {
-                if self.cursor_position.y < self.rows.len() - 1 {
+                if self.cursor_position.y < limit_y {
                     if self.cursor_position.x < limit_x { 
                         self.cursor_position.x += 1 
                     } else {
                         self.cursor_position.y += 1;
-                        self.cursor_position.x = 1;
+                        self.cursor_position.x = 0;
                     }
                 }
             }
@@ -133,7 +133,7 @@ impl Editor {
                 if self.cursor_position.y < limit_y { 
                     self.cursor_position.y += 1;
                     if self.cursor_position.x > self.rows[self.cursor_position.y].chars.len() {
-                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
+                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len() - 1;
                     }
                 };
             },
@@ -160,9 +160,10 @@ impl Editor {
 
    pub fn draw_rows(&mut self) {
         for i in 0..self.window_size.y {
-            self.append_buffer.append(b"\x1b[48;5;236m~\x1b[m\x1b[K".to_vec().as_mut());
+            self.append_buffer.append(b"\x1b[K".to_vec().as_mut());
             let file_row = i + self.offset.y;
             if file_row >= self.rows.len() {
+                self.append_buffer.append(b"\x1b[48;5;236m~\x1b[m".to_vec().as_mut());
                 if i >= self.rows.len() {
                     if self.rows.len() == 0 && i == self.window_size.y / 3 {
                         let message = format!("riko editor -- version 0.0.1");
