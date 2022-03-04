@@ -89,7 +89,7 @@ impl Editor {
                 self.rows[self.cursor_position.y].chars.len() - 1
             };
 
-            limit_y =self.rows.len();
+            limit_y =self.rows.len() - 1;
         }
 
         match key {
@@ -141,6 +141,7 @@ impl Editor {
        self.scroll(); 
        self.append_buffer.append(b"\x1b[?25l\x1b[H".to_vec().as_mut());
        self.draw_rows();
+       self.draw_status_bar();
        self.append_buffer.append(format!("\x1b[{};{}H",
                self.cursor_position.y - self.offset.y + 1,
                self.render_cursor_position.x - self.offset.x + 1)
@@ -179,6 +180,14 @@ impl Editor {
             self.append_buffer.append(b"\r\n".to_vec().as_mut());
         }
    }
+
+    fn draw_status_bar(&mut self) {
+        self.append_buffer.append(b"\x1b[7m".to_vec().as_mut());
+        for _ in 0..self.window_size.x {
+            self.append_buffer.append(b" ".to_vec().as_mut());
+        }
+        self.append_buffer.append(b"\x1b[m".to_vec().as_mut());
+    }
 
    fn scroll(&mut self) {
         self.render_cursor_position.x = 0;
