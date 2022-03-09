@@ -54,10 +54,10 @@ impl Editor {
        let file = File::open(&filename)?;
        self.current_file_name = filename.clone(); 
        for row in BufReader::new(file).lines() {
-            let mut line = row?;
-            line.push_str("\r");
+            let mut line_with_lf = row?.into_bytes();
+            line_with_lf.push(b'\r');
             self.append_row(row::EditorRow {
-                chars: line.into_bytes(),
+                chars: line_with_lf,
                 render: vec!(),
             });
        } 
@@ -66,7 +66,7 @@ impl Editor {
 
    pub fn process_keypress(&mut self, key: &key::EditorKey) {
         match key {
-            &key::EditorKey::Char(b'\r') => (),
+            &key::EditorKey::Char(b'\n') => (),
             &key::EditorKey::Char(c) => self.insert_char(c),
             &key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
             &key::EditorKey::PageDown => {
@@ -81,7 +81,12 @@ impl Editor {
             &key::EditorKey::Ctrl(b'Q') => (),
             &key::EditorKey::Ctrl(b'L') => (),
             &key::EditorKey::Ctrl(b'H') => (),
-            &key::EditorKey::Ctrl(b'S') => self.save().unwrap(),
+            &key::EditorKey::Ctrl(b'S') => {
+                match self.save() {
+                    Ok(()) => self.set_status_message("Written to disk".to_string()),        
+                    Err(_) => self.set_status_message("Can not save! I/O Error".to_string()),        
+                }
+            }
             _ => (),
         }
    }
@@ -206,9 +211,9 @@ impl Editor {
             status_text.push(' ');
         }
         self.append_buffer.append(status_text.as_bytes().to_vec().as_mut());
-        self.append_buffer.append(b"\r\n".to_vec().as_mut());
         self.append_buffer.append(b"\x1b[m".to_vec().as_mut());
 
+        self.append_buffer.append(b"\r\n".to_vec().as_mut());
         self.append_buffer.append(b"\x1b[K".to_vec().as_mut());
         self.append_buffer.append(self.status_message.as_bytes().to_vec().as_mut());
     }
@@ -280,7 +285,10 @@ impl Editor {
         if String::is_empty(&self.current_file_name) { return Ok(()); }
         let mut file = File::create(&self.current_file_name)?;
         
-        for r in &self.rows {
+        for r in &mut self.rows {
+            if let Some(index) = &r.chars.iter().position(|c| *c == b'\r') {
+                let _ = std::mem::replace(&mut r.chars[*index], b'\n');
+            }
             file.write_all(r.chars.as_slice())?;
         }
         Ok(())

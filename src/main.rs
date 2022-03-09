@@ -26,7 +26,7 @@ fn main() {
         editor.open_file(&filename).unwrap();
     }
 
-    editor.set_status_message("HELP: Ctrl-Q => Quit".to_string());
+    editor.set_status_message("HELP: Ctrl-S => Save | Ctrl-Q => Quit".to_string());
     
     for c in stdin().keys() {
         let key = c.unwrap();
