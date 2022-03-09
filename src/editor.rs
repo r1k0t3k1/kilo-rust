@@ -78,10 +78,10 @@ impl Editor {
                     self.cursor_position.x = self.rows[self.cursor_position.y].chars.len()
                 };
             },
-            &key::EditorKey::Ctrl(b'q') => (),
-            &key::EditorKey::Ctrl(b'l') => (),
-            &key::EditorKey::Ctrl(b'h') => (),
-
+            &key::EditorKey::Ctrl(b'Q') => (),
+            &key::EditorKey::Ctrl(b'L') => (),
+            &key::EditorKey::Ctrl(b'H') => (),
+            &key::EditorKey::Ctrl(b'S') => self.save().unwrap(),
             _ => (),
         }
    }
@@ -114,13 +114,14 @@ impl Editor {
                 }
             }
             key::EditorKey::ArrowRight => {
-                if self.cursor_position.y < limit_y {
-                    if self.cursor_position.x < limit_x { 
-                        self.cursor_position.x += 1 
-                    } else {
-                        self.cursor_position.y += 1;
-                        self.cursor_position.x = 0;
-                    }
+                if self.cursor_position.y >= limit_y && self.cursor_position.x >= limit_x {
+                    return;
+                }
+                if self.cursor_position.x < limit_x { 
+                    self.cursor_position.x += 1 
+                } else {
+                    self.cursor_position.y += 1;
+                    self.cursor_position.x = 0;
                 }
             }
             key::EditorKey::ArrowUp => {
@@ -273,5 +274,15 @@ impl Editor {
         self.rows[self.cursor_position.y].render.insert(self.render_cursor_position.x, char);
         self.cursor_position.x += 1;
         self.render_cursor_position.x += 1;
+   }
+
+   fn save(&mut self) -> io::Result<()>{
+        if String::is_empty(&self.current_file_name) { return Ok(()); }
+        let mut file = File::create(&self.current_file_name)?;
+        
+        for r in &self.rows {
+            file.write_all(r.chars.as_slice())?;
+        }
+        Ok(())
    }
 }
