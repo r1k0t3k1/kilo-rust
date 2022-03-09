@@ -30,6 +30,7 @@ fn main() {
     
     for c in stdin().keys() {
         let key = c.unwrap();
+
         match key {
             key::EditorKey::Ctrl(b'Q') => {
                 t.output.write(b"\x1b[2J".to_vec().as_mut()).unwrap();
@@ -37,12 +38,9 @@ fn main() {
                 t.suspend_raw_mode().unwrap();
                 process::exit(0); 
             },
-            key::EditorKey::Char(_) => editor.process_keypress(&key),
-            key::EditorKey::PageUp => editor.process_keypress(&key),
-            key::EditorKey::PageDown => editor.process_keypress(&key),
-            key::EditorKey::End => editor.process_keypress(&key),
             _ => (),
         }
+        editor.process_keypress(&key);
         editor.move_cursor(&key);
         editor.refresh_screen();
     }

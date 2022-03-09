@@ -66,6 +66,7 @@ impl Editor {
 
    pub fn process_keypress(&mut self, key: &key::EditorKey) {
         match key {
+            &key::EditorKey::Char(b'\r') => (),
             &key::EditorKey::Char(c) => self.insert_char(c),
             &key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
             &key::EditorKey::PageDown => {
@@ -77,6 +78,10 @@ impl Editor {
                     self.cursor_position.x = self.rows[self.cursor_position.y].chars.len()
                 };
             },
+            &key::EditorKey::Ctrl(b'q') => (),
+            &key::EditorKey::Ctrl(b'l') => (),
+            &key::EditorKey::Ctrl(b'h') => (),
+
             _ => (),
         }
    }
@@ -118,13 +123,13 @@ impl Editor {
                     }
                 }
             }
-            key::EditorKey::ArrowUp    => {
+            key::EditorKey::ArrowUp => {
                 if self.rows.len() == self.cursor_position.y { 
                     self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
                     return;
                 }
                 if self.cursor_position.x > self.rows[self.cursor_position.y.saturating_sub(1)].chars.len() {
-                    self.cursor_position.x = self.rows[self.cursor_position.y.saturating_sub(1)].chars.len();
+                    self.cursor_position.x = self.rows[self.cursor_position.y.saturating_sub(1)].chars.len() - 1;
                     self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
                     return;
                 }

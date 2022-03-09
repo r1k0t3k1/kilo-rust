@@ -40,7 +40,9 @@ impl<R: Read> InputKeys<R> {
     fn parse_input(&mut self, b: u8) -> io::Result<EditorKey> {
         match b {
             0x00 => Ok(EditorKey::Null),
-            0x01..=0x1a => Ok(EditorKey::Ctrl(b + 64_u8)),
+            0x01..=0x07 => Ok(EditorKey::Ctrl(b + 64_u8)),
+            0x08 => Ok(EditorKey::BackSpace),
+            0x09..=0x1a => Ok(EditorKey::Ctrl(b + 64_u8)),
             0x1b => self.parse_escape_sequence(), // start escape sequence
             0x1c..=0x1f => Ok(EditorKey::Ctrl(b + 64_u8)),
             0x20..=0x7e => Ok(EditorKey::Char(b)), // ASCII code
