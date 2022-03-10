@@ -35,7 +35,7 @@ impl Editor {
         let mut stdin = stdin();
         let mut stdout = stdout();
         
-        let window_size = window::get_size(&mut stdin, &mut stdout).unwrap();
+        let window_size = window::get_size().unwrap();
         Editor {
             stdin: stdin,
             stdout: stdout,
