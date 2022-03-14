@@ -18,6 +18,7 @@ pub struct Editor {
     window_size: Position,
     status_message: String,
     current_file_name: String,
+    is_dirty: bool,
 }
 
 pub struct Position {
@@ -47,6 +48,7 @@ impl Editor {
             window_size: Position::new(window_size.0, window_size.1 - 2),
             status_message: "".to_string(),
             current_file_name: "[NO NAME]".to_string(),
+            is_dirty: false,
         }
    } 
 
@@ -61,6 +63,7 @@ impl Editor {
                 render: vec!(),
             });
        } 
+       self.is_dirty = false;
        Ok(())
    }
 
@@ -201,9 +204,11 @@ impl Editor {
 
     fn draw_status_bar(&mut self) {
         self.append_buffer.append(b"\x1b[48;5;245m".to_vec().as_mut());
-        
-        let mut status_text = format!("{}:r{}:c{}",
+
+
+        let mut status_text = format!("{}{}:r{}:c{}",
             self.current_file_name,
+            if let true = self.is_dirty { "(modified)" } else { "" },
             self.cursor_position.y,
             self.render_cursor_position.x,
         );
@@ -245,6 +250,7 @@ impl Editor {
    fn append_row(&mut self, row: EditorRow) {
        self.rows.push(row);
        self.update_row();
+       self.is_dirty = true;
    }
 
    fn update_row(&mut self) {
@@ -279,6 +285,7 @@ impl Editor {
         self.rows[self.cursor_position.y].render.insert(self.render_cursor_position.x, char);
         self.cursor_position.x += 1;
         self.render_cursor_position.x += 1;
+        self.is_dirty = true;
    }
 
    fn save(&mut self) -> io::Result<()>{
@@ -291,6 +298,7 @@ impl Editor {
             }
             file.write_all(r.chars.as_slice())?;
         }
+        self.is_dirty = false;
         Ok(())
    }
 }
