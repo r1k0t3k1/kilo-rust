@@ -20,7 +20,7 @@ impl EditorRow {
     }
 
     pub fn append(&mut self, append_row: &mut Self) {
-       self.chars.append(append_row.chars.as_mut()); 
+       self.chars.append(&mut append_row.chars); 
        self.update();
     }
 
