@@ -19,6 +19,11 @@ impl EditorRow {
         }
     }
 
+    pub fn append(&mut self, append_row: &mut Self) {
+       self.chars.append(append_row.chars.as_mut()); 
+       self.update();
+    }
+
     pub fn update(&mut self) {
         self.render = Vec::new();
         for c in 0..self.chars.len() {

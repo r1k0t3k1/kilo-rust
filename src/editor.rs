@@ -282,8 +282,14 @@ impl Editor {
             self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
             self.render_cursor_position.x = self.rows[self.cursor_position.y]
                 .render_position(self.cursor_position.x);
-            self.is_dirty = true;
+       } else {
+            if self.cursor_position.y == 0 { return }
+            let mut mv = self.rows.swap_remove(self.cursor_position.y);
+            self.rows[self.cursor_position.y - 1].append(&mut mv);
+            self.cursor_position.y -= 1;
+            self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
        }
+        self.is_dirty = true;
    }
 
    fn save(&mut self) -> io::Result<()>{
