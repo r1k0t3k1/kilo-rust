@@ -66,11 +66,11 @@ impl Editor {
        Ok(())
    }
 
-   pub fn process_keypress(&mut self, key: key::EditorKey) -> bool {
+   pub fn process_keypress(&mut self, key: &key::EditorKey) -> bool {
        let mut allow_exit = false;
         match key {
             key::EditorKey::Char(b'\n') => (),
-            key::EditorKey::Char(c) => self.insert_char(c),
+            key::EditorKey::Char(c) => self.insert_char(*c),
             key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
             key::EditorKey::PageDown => {
                 self.cursor_position.y = self.offset.y + self.window_size.y - 1;
@@ -104,12 +104,11 @@ impl Editor {
             key::EditorKey::Null => return false,
             _ => (),
         }
-        self.e_key_history.push(key);
+        self.e_key_history.push(key.clone());
         allow_exit
    }
 
-   pub fn move_cursor(&mut self) {
-       let key = self.e_key_history.last();
+   pub fn move_cursor(&mut self, key: &key::EditorKey) {
         let limit_x;
         let limit_y;
         if self.rows.len() == 0 { 
@@ -126,7 +125,7 @@ impl Editor {
         }
 
         match key {
-            Some(key::EditorKey::ArrowLeft)  => {
+            &key::EditorKey::ArrowLeft  => {
                 if self.cursor_position.x == 0 {
                     if self.cursor_position.y > 0 {
                         self.cursor_position.y -= 1;
@@ -136,7 +135,7 @@ impl Editor {
                     self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
                 }
             }
-            Some(key::EditorKey::ArrowRight) => {
+            &key::EditorKey::ArrowRight => {
                 if self.cursor_position.y >= limit_y && self.cursor_position.x >= limit_x {
                     return;
                 }
@@ -147,7 +146,7 @@ impl Editor {
                     self.cursor_position.x = 0;
                 }
             }
-            Some(key::EditorKey::ArrowUp) => {
+            &key::EditorKey::ArrowUp => {
                 if self.rows.len() == self.cursor_position.y { 
                     self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
                     return;
@@ -159,7 +158,7 @@ impl Editor {
                 }
                 self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
             }
-            Some(key::EditorKey::ArrowDown)  => {
+            &key::EditorKey::ArrowDown  => {
                 if self.cursor_position.y < limit_y { 
                     self.cursor_position.y += 1;
                     if self.cursor_position.x > self.rows[self.cursor_position.y].chars.len() {

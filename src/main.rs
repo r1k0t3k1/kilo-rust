@@ -30,14 +30,13 @@ fn main() {
     
     for c in stdin().keys() {
         let key = c.unwrap();
-
-        if editor.process_keypress(key) {
+        if editor.process_keypress(&key) {
             t.output.write(b"\x1b[2J".to_vec().as_mut()).unwrap();
             t.output.write(b"\x1b[0G\x1b[0d".to_vec().as_mut()).unwrap();
             t.suspend_raw_mode().unwrap();
             process::exit(0); 
         }
-        editor.move_cursor();
+        editor.move_cursor(&key);
         editor.refresh_screen();
     }
 }
