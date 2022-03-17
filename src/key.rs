@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone,Copy)]
 pub enum EditorKey {
     Char(u8),
     Ctrl(u8),

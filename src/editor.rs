@@ -8,7 +8,6 @@ use crate::{key, window};
 const TAB_STOP: usize = 4;
 
 pub struct Editor {
-    stdin: Stdin,
     stdout: Stdout,
     append_buffer: Vec<u8>,
     cursor_position: Position,
@@ -19,6 +18,7 @@ pub struct Editor {
     status_message: String,
     current_file_name: String,
     is_dirty: bool,
+    e_key_history: Vec<key::EditorKey>,
 }
 
 pub struct Position {
@@ -33,13 +33,11 @@ impl Position {
 
 impl Editor {
    pub fn new() -> Editor {
-        let mut stdin = stdin();
-        let mut stdout = stdout();
+        let stdout = stdout();
         
         let window_size = window::get_size().unwrap();
         Editor {
-            stdin: stdin,
-            stdout: stdout,
+            stdout,
             append_buffer: Vec::new(),
             cursor_position: Position::new(0, 0),
             render_cursor_position: Position::new(0, 0),
@@ -49,6 +47,7 @@ impl Editor {
             status_message: "".to_string(),
             current_file_name: "[NO NAME]".to_string(),
             is_dirty: false,
+            e_key_history: Vec::new(),
         }
    } 
 
@@ -67,34 +66,50 @@ impl Editor {
        Ok(())
    }
 
-   pub fn process_keypress(&mut self, key: &key::EditorKey) {
+   pub fn process_keypress(&mut self, key: key::EditorKey) -> bool {
+       let mut allow_exit = false;
         match key {
-            &key::EditorKey::Char(b'\n') => (),
-            &key::EditorKey::Char(c) => self.insert_char(c),
-            &key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
-            &key::EditorKey::PageDown => {
+            key::EditorKey::Char(b'\n') => (),
+            key::EditorKey::Char(c) => self.insert_char(c),
+            key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
+            key::EditorKey::PageDown => {
                 self.cursor_position.y = self.offset.y + self.window_size.y - 1;
                 if self.cursor_position.y > self.rows.len() { self.cursor_position.y = self.rows.len() };
             },
-            &key::EditorKey::End => {
-                if self.cursor_position.y == self.rows.len() {
+            key::EditorKey::End => { if self.cursor_position.y == self.rows.len() {
                     self.cursor_position.x = self.rows[self.cursor_position.y].chars.len()
                 };
             },
-            &key::EditorKey::Ctrl(b'Q') => (),
-            &key::EditorKey::Ctrl(b'L') => (),
-            &key::EditorKey::Ctrl(b'H') => (),
-            &key::EditorKey::Ctrl(b'S') => {
+            key::EditorKey::Ctrl(b'Q') => {
+                if self.is_dirty {
+                    match self.e_key_history.last() {
+                        Some(key::EditorKey::Ctrl(b'Q')) => allow_exit = true,
+                        _ => {
+                            self.set_status_message("WARNING!! File has unsaved changes. Press Ctrl-Q again to quit.".to_string());
+                            allow_exit = false;
+                        }
+                    }
+                } else {
+                    allow_exit = true;
+                }
+            },
+            key::EditorKey::Ctrl(b'S') => {
                 match self.save() {
                     Ok(()) => self.set_status_message("Written to disk".to_string()),        
                     Err(_) => self.set_status_message("Can not save! I/O Error".to_string()),        
                 }
             }
+            key::EditorKey::Ctrl(b'L') => (),
+            key::EditorKey::Ctrl(b'H') => (),
+            key::EditorKey::Null => return false,
             _ => (),
         }
+        self.e_key_history.push(key);
+        allow_exit
    }
 
-   pub fn move_cursor(&mut self, key: &key::EditorKey) {
+   pub fn move_cursor(&mut self) {
+       let key = self.e_key_history.last();
         let limit_x;
         let limit_y;
         if self.rows.len() == 0 { 
@@ -111,7 +126,7 @@ impl Editor {
         }
 
         match key {
-            key::EditorKey::ArrowLeft  => {
+            Some(key::EditorKey::ArrowLeft)  => {
                 if self.cursor_position.x == 0 {
                     if self.cursor_position.y > 0 {
                         self.cursor_position.y -= 1;
@@ -121,7 +136,7 @@ impl Editor {
                     self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
                 }
             }
-            key::EditorKey::ArrowRight => {
+            Some(key::EditorKey::ArrowRight) => {
                 if self.cursor_position.y >= limit_y && self.cursor_position.x >= limit_x {
                     return;
                 }
@@ -132,7 +147,7 @@ impl Editor {
                     self.cursor_position.x = 0;
                 }
             }
-            key::EditorKey::ArrowUp => {
+            Some(key::EditorKey::ArrowUp) => {
                 if self.rows.len() == self.cursor_position.y { 
                     self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
                     return;
@@ -144,7 +159,7 @@ impl Editor {
                 }
                 self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
             }
-            key::EditorKey::ArrowDown  => {
+            Some(key::EditorKey::ArrowDown)  => {
                 if self.cursor_position.y < limit_y { 
                     self.cursor_position.y += 1;
                     if self.cursor_position.x > self.rows[self.cursor_position.y].chars.len() {
