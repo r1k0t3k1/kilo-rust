@@ -1,11 +1,9 @@
-use std::io::{self, Stdin, Stdout, stdin, stdout, Write, BufReader, BufRead};
+use std::io::{self, Stdout, stdout, Write, BufReader, BufRead};
 use std::fs::File;
 use std::vec;
 
 use crate::row::{EditorRow, self};
 use crate::{key, window};
-
-const TAB_STOP: usize = 4;
 
 pub struct Editor {
     stdout: Stdout,
@@ -71,6 +69,7 @@ impl Editor {
         match key {
             key::EditorKey::Char(b'\n') => (),
             key::EditorKey::Char(c) => self.insert_char(*c),
+            key::EditorKey::BackSpace => self.backspace(),
             key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
             key::EditorKey::PageDown => {
                 self.cursor_position.y = self.offset.y + self.window_size.y - 1;
@@ -118,7 +117,7 @@ impl Editor {
             limit_x = if self.cursor_position.y == self.rows.len() {
                 0
             } else {
-                self.rows[self.cursor_position.y].chars.len() - 1
+                self.rows[self.cursor_position.y].chars.len().saturating_sub(1)
             };
 
             limit_y =self.rows.len() - 1;
@@ -244,7 +243,8 @@ impl Editor {
    fn scroll(&mut self) {
         self.render_cursor_position.x = 0;
         if self.cursor_position.y < self.rows.len() {
-            self.cursol2render_cursol();
+            self.render_cursor_position.x = self.rows[self.cursor_position.y]
+                .render_position(self.cursor_position.x);
         }
         if self.cursor_position.y < self.offset.y {
             self.offset.y = self.cursor_position.y;
@@ -263,43 +263,27 @@ impl Editor {
 
    fn append_row(&mut self, row: EditorRow) {
        self.rows.push(row);
-       self.update_row();
+       self.rows.last_mut().unwrap().update();
        self.is_dirty = true;
    }
 
-   fn update_row(&mut self) {
-       let last = self.rows.last_mut().unwrap();
-
-       for c in 0..last.chars.len() {
-            if last.chars[c] == 9 {
-                for _ in 0..TAB_STOP { last.render.push(32) }
-            } else {
-                last.render.push(last.chars[c]);
-            }
-       }
-       last.render.push(0);
-   }
-
-   fn cursol2render_cursol(&mut self) {
-        let limit: usize;
-        if self.rows[self.cursor_position.y].chars.len() < self.cursor_position.x { 
-            limit = self.rows[self.cursor_position.y].chars.len();
-        } else {
-            limit = self.cursor_position.x;
-        }
-        let tab_count = self.rows[self.cursor_position.y].chars[0..limit]
-            .iter()
-            .filter(|&tab| *tab == 9).count();
-        let rx = self.cursor_position.x + (TAB_STOP * tab_count) - tab_count;
-        self.render_cursor_position.x = rx;
-   }
-
    fn insert_char(&mut self, char: u8) {
-        self.rows[self.cursor_position.y].chars.insert(self.cursor_position.x, char);
-        self.rows[self.cursor_position.y].render.insert(self.render_cursor_position.x, char);
+        self.rows[self.cursor_position.y]
+            .insert_char(char, self.cursor_position.x);
         self.cursor_position.x += 1;
         self.render_cursor_position.x += 1;
         self.is_dirty = true;
+   }
+
+   fn backspace(&mut self) {
+       if self.cursor_position.x >= 1 {
+            self.rows[self.cursor_position.y]
+                .delete_char(self.cursor_position.x.saturating_sub(1));
+            self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
+            self.render_cursor_position.x = self.rows[self.cursor_position.y]
+                .render_position(self.cursor_position.x);
+            self.is_dirty = true;
+       }
    }
 
    fn save(&mut self) -> io::Result<()>{
