@@ -1,3 +1,5 @@
+use std::io::Write;
+
 pub struct EditorRow {
    pub chars: Vec<u8>,
    pub render: Vec<u8>,
@@ -19,9 +21,12 @@ impl EditorRow {
         }
     }
 
-    pub fn append(&mut self, append_row: &mut Self) {
-       self.chars.append(&mut append_row.chars); 
-       self.update();
+    pub fn append(&mut self, append_row: &mut EditorRow) {
+        // remove CRLF in current line
+        self.chars.pop();
+    
+        self.chars.write(&append_row.chars).unwrap(); 
+        self.update();
     }
 
     pub fn update(&mut self) {

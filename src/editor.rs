@@ -1,6 +1,6 @@
 use std::io::{self, Stdout, stdout, Write, BufReader, BufRead};
 use std::fs::File;
-use std::vec;
+use std::{vec, str};
 
 use crate::row::{EditorRow, self};
 use crate::{key, window};
@@ -218,7 +218,6 @@ impl Editor {
     fn draw_status_bar(&mut self) {
         self.append_buffer.append(b"\x1b[48;5;245m".to_vec().as_mut());
 
-
         let mut status_text = format!("{}{}:r{}:c{}",
             self.current_file_name,
             if let true = self.is_dirty { "(modified)" } else { "" },
@@ -285,9 +284,11 @@ impl Editor {
        } else {
             if self.cursor_position.y == 0 { return }
             let mut mv = self.rows.swap_remove(self.cursor_position.y);
-            self.rows[self.cursor_position.y - 1].append(&mut mv);
             self.cursor_position.y -= 1;
             self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
+            self.render_cursor_position.x = self.rows[self.cursor_position.y].render.len();
+
+            self.rows[self.cursor_position.y].append(&mut mv);
        }
         self.is_dirty = true;
    }
