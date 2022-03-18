@@ -21,12 +21,17 @@ impl EditorRow {
         }
     }
 
-    pub fn append(&mut self, append_row: &mut EditorRow) {
-        // remove CRLF in current line
+    pub fn append(&mut self, append_row: &mut Self) {
         self.chars.pop();
-    
         self.chars.write(&append_row.chars).unwrap(); 
         self.update();
+    }
+
+    pub fn split(&mut self, at: usize) -> Self {
+        EditorRow {
+            chars: self.chars.split_off(at),
+            render: Vec::new(),
+        }
     }
 
     pub fn update(&mut self) {

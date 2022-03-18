@@ -5,6 +5,7 @@ pub enum EditorKey {
     Char(u8),
     Ctrl(u8),
     Function(u8),
+    Enter,
     Escape,
     ArrowUp,
     ArrowLeft,
@@ -42,7 +43,11 @@ impl<R: Read> InputKeys<R> {
             0x00 => Ok(EditorKey::Null),
             0x01..=0x07 => Ok(EditorKey::Ctrl(b + 64_u8)),
             0x08 => Ok(EditorKey::BackSpace),
-            0x09..=0x1a => Ok(EditorKey::Ctrl(b + 64_u8)),
+            0x09..=0x09 => Ok(EditorKey::Ctrl(b + 64_u8)),
+            0x0a => Ok(EditorKey::Enter),
+            0x0b..=0x0c => Ok(EditorKey::Ctrl(b + 64_u8)),
+            0x0d => Ok(EditorKey::Enter),
+            0x0e..=0x1a => Ok(EditorKey::Ctrl(b + 64_u8)),
             0x1b => self.parse_escape_sequence(), // start escape sequence
             0x1c..=0x1f => Ok(EditorKey::Ctrl(b + 64_u8)),
             0x20..=0x7e => Ok(EditorKey::Char(b)), // ASCII code

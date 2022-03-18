@@ -10,6 +10,7 @@ mod window;
 mod sys;
 mod key;
 mod row;
+mod position;
 
 //const VERSION: &str = "0.0.1";
 

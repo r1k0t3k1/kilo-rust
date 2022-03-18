@@ -1,9 +1,9 @@
 use std::io::{self, Stdout, stdout, Write, BufReader, BufRead};
 use std::fs::File;
-use std::{vec, str};
+use std::{vec, usize};
 
 use crate::row::{EditorRow, self};
-use crate::{key, window};
+use crate::{key, window, position::Position};
 
 pub struct Editor {
     stdout: Stdout,
@@ -17,16 +17,6 @@ pub struct Editor {
     current_file_name: String,
     is_dirty: bool,
     e_key_history: Vec<key::EditorKey>,
-}
-
-pub struct Position {
-    x: usize,
-    y: usize,
-}
-impl Position {
-    pub fn new(x: usize, y: usize) -> Position {
-        Position { x, y }
-    }
 }
 
 impl Editor {
@@ -55,7 +45,7 @@ impl Editor {
        for row in BufReader::new(file).lines() {
             let mut line_with_lf = row?.into_bytes();
             line_with_lf.push(b'\r');
-            self.append_row(row::EditorRow {
+            self.insert_row(self.rows.len(), row::EditorRow {
                 chars: line_with_lf,
                 render: vec!(),
             });
@@ -64,10 +54,24 @@ impl Editor {
        Ok(())
    }
 
+   fn save(&mut self) -> io::Result<()>{
+        if String::is_empty(&self.current_file_name) { return Ok(()); }
+        let mut file = File::create(&self.current_file_name)?;
+        
+        for r in &mut self.rows {
+            if let Some(index) = &r.chars.iter().position(|c| *c == b'\n') {
+                let _ = std::mem::replace(&mut r.chars[*index], b'\n');
+            }
+            file.write_all(r.chars.as_slice())?;
+        }
+        self.is_dirty = false;
+        Ok(())
+   }
+
    pub fn process_keypress(&mut self, key: &key::EditorKey) -> bool {
        let mut allow_exit = false;
         match key {
-            key::EditorKey::Char(b'\n') => (),
+            key::EditorKey::Enter => self.insert_newline(),
             key::EditorKey::Char(c) => self.insert_char(*c),
             key::EditorKey::BackSpace => self.backspace(),
             key::EditorKey::PageUp => self.cursor_position.y = self.offset.y,
@@ -117,7 +121,7 @@ impl Editor {
             limit_x = if self.cursor_position.y == self.rows.len() {
                 0
             } else {
-                self.rows[self.cursor_position.y].chars.len().saturating_sub(1)
+                self.rows[self.cursor_position.y].chars.len() - 1
             };
 
             limit_y =self.rows.len() - 1;
@@ -131,7 +135,7 @@ impl Editor {
                         self.cursor_position.x = self.rows[self.cursor_position.y].chars.len() - 1;
                     }
                 }else {
-                    self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
+                    self.cursor_position -= Position::new(1,0);
                 }
             }
             &key::EditorKey::ArrowRight => {
@@ -147,15 +151,15 @@ impl Editor {
             }
             &key::EditorKey::ArrowUp => {
                 if self.rows.len() == self.cursor_position.y { 
-                    self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
+                    self.cursor_position -= Position::new(0,1);
                     return;
                 }
                 if self.cursor_position.x > self.rows[self.cursor_position.y.saturating_sub(1)].chars.len() {
                     self.cursor_position.x = self.rows[self.cursor_position.y.saturating_sub(1)].chars.len() - 1;
-                    self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
+                    self.cursor_position -= Position::new(0,1);
                     return;
                 }
-                self.cursor_position.y = self.cursor_position.y.saturating_sub(1);
+                self.cursor_position -= Position::new(0,1);
             }
             &key::EditorKey::ArrowDown  => {
                 if self.cursor_position.y < limit_y { 
@@ -218,11 +222,14 @@ impl Editor {
     fn draw_status_bar(&mut self) {
         self.append_buffer.append(b"\x1b[48;5;245m".to_vec().as_mut());
 
-        let mut status_text = format!("{}{}:r{}:c{}",
+        let mut status_text = format!("{}{}: (cx{}, cy{}): (rcx{}, rcy{}): lc:{}",
             self.current_file_name,
             if let true = self.is_dirty { "(modified)" } else { "" },
+            self.cursor_position.x,
             self.cursor_position.y,
             self.render_cursor_position.x,
+            self.render_cursor_position.y,
+            self.rows.len(),
         );
         for _ in 0..self.window_size.x - status_text.len(){
             status_text.push(' ');
@@ -260,10 +267,22 @@ impl Editor {
 
    }
 
-   fn append_row(&mut self, row: EditorRow) {
-       self.rows.push(row);
-       self.rows.last_mut().unwrap().update();
+   fn insert_row(&mut self, at: usize, row: EditorRow) {
+       self.rows.insert(at, row);
+       self.rows[at].update();
        self.is_dirty = true;
+   }
+
+   fn insert_newline(&mut self) {
+        let r = self.rows[self.cursor_position.y]
+            .split(self.cursor_position.x);
+        if r.chars.len() == 0 {
+            self.rows[self.cursor_position.y].chars.push(b'\r');
+        }
+        self.rows[self.cursor_position.y].update();
+        self.insert_row(self.cursor_position.y + 1, r);
+        self.cursor_position.x = 0;
+        self.cursor_position.y += 1;
    }
 
    fn insert_char(&mut self, char: u8) {
@@ -285,25 +304,12 @@ impl Editor {
             if self.cursor_position.y == 0 { return }
             let mut mv = self.rows.swap_remove(self.cursor_position.y);
             self.cursor_position.y -= 1;
-            self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
+            self.cursor_position.x = self.rows[self.cursor_position.y].chars.len() - 1;
             self.render_cursor_position.x = self.rows[self.cursor_position.y].render.len();
-
+            let last = self.rows[self.cursor_position.y].chars.len();
+            self.rows[self.cursor_position.y].delete_char(last);
             self.rows[self.cursor_position.y].append(&mut mv);
        }
         self.is_dirty = true;
-   }
-
-   fn save(&mut self) -> io::Result<()>{
-        if String::is_empty(&self.current_file_name) { return Ok(()); }
-        let mut file = File::create(&self.current_file_name)?;
-        
-        for r in &mut self.rows {
-            if let Some(index) = &r.chars.iter().position(|c| *c == b'\r') {
-                let _ = std::mem::replace(&mut r.chars[*index], b'\n');
-            }
-            file.write_all(r.chars.as_slice())?;
-        }
-        self.is_dirty = false;
-        Ok(())
    }
 }
