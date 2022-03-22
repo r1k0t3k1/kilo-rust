@@ -1,6 +1,6 @@
-use termios::*;
 use std::io::{self, stdin};
 use std::os::unix::io::AsRawFd;
+use termios::*;
 
 pub fn get_terminal_setting() -> io::Result<Termios> {
     let fd = stdin().as_raw_fd();
@@ -39,8 +39,8 @@ pub fn get_raw_terminal_setting() -> io::Result<Termios> {
     // timeout for read
     termios.c_cc[VMIN] = 0;
     termios.c_cc[VTIME] = 1;
- 
+
     tcsetattr(fd, TCSAFLUSH, &termios)?;
-    
+
     Ok(termios)
 }

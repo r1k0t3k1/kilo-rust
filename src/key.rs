@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-#[derive(Debug,PartialEq,Clone,Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum EditorKey {
     Char(u8),
     Ctrl(u8),
@@ -29,9 +29,9 @@ pub struct InputKeys<R> {
 
 impl<R: Read> Iterator for InputKeys<R> {
     type Item = io::Result<EditorKey>;
-    
+
     fn next(&mut self) -> Option<io::Result<EditorKey>> {
-        let mut buffer = [0_u8;1];
+        let mut buffer = [0_u8; 1];
         self.input_source.read(&mut buffer).unwrap();
         Some(self.parse_input(buffer[0]))
     }
@@ -57,7 +57,7 @@ impl<R: Read> InputKeys<R> {
     }
 
     fn parse_escape_sequence(&mut self) -> io::Result<EditorKey> {
-        let mut buffer: [u8;1] = [0];
+        let mut buffer: [u8; 1] = [0];
         self.input_source.read(&mut buffer)?;
         match buffer[0] {
             b'[' => self.parse_csi(),
@@ -66,7 +66,7 @@ impl<R: Read> InputKeys<R> {
     }
 
     fn parse_csi(&mut self) -> io::Result<EditorKey> {
-        let mut buffer: [u8;1] = [0];
+        let mut buffer: [u8; 1] = [0];
         self.input_source.read(&mut buffer)?;
         match buffer[0] {
             b'A' => Ok(EditorKey::ArrowUp),
@@ -79,12 +79,12 @@ impl<R: Read> InputKeys<R> {
             b'3' => Ok(EditorKey::Delete),
             b'5' => Ok(EditorKey::PageUp),
             b'6' => Ok(EditorKey::PageDown),
-            _    => Ok(EditorKey::Undefined),
+            _ => Ok(EditorKey::Undefined),
         }
     }
 
     fn parse_function_key(&mut self) -> io::Result<EditorKey> {
-        let mut buffer: [u8;1] = [0];
+        let mut buffer: [u8; 1] = [0];
         self.input_source.read(&mut buffer)?;
         match buffer[0] {
             b'P' => Ok(EditorKey::Function(1)),
@@ -99,21 +99,25 @@ impl<R: Read> InputKeys<R> {
             b'1' => Ok(EditorKey::Function(10)),
             b'3' => Ok(EditorKey::Function(11)),
             b'4' => Ok(EditorKey::Function(12)),
-            _    => Ok(EditorKey::Undefined),
+            _ => Ok(EditorKey::Undefined),
         }
     }
 }
 
 pub trait ReadKey {
-    fn keys(self) -> InputKeys<Self> where Self: Sized;
+    fn keys(self) -> InputKeys<Self>
+    where
+        Self: Sized;
 }
 
 impl<R: Read> ReadKey for R {
-    fn keys(self) -> InputKeys<Self> where Self: Sized{ 
+    fn keys(self) -> InputKeys<Self>
+    where
+        Self: Sized,
+    {
         InputKeys { input_source: self }
-    } 
+    }
 }
-
 
 pub fn ctrl(c: char) -> EditorKey {
     EditorKey::Char((c as u8) & 31_u8)

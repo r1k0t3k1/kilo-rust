@@ -13,7 +13,7 @@ impl Position {
 
 impl ops::Add<Position> for Position {
     type Output = Position;
-fn add(self, rhs: Position) -> Position {
+    fn add(self, rhs: Position) -> Position {
         let ret_x = self.x.saturating_add(rhs.x);
         let ret_y = self.y.saturating_add(rhs.y);
 
@@ -49,4 +49,3 @@ impl ops::SubAssign<Position> for Position {
         }
     }
 }
-

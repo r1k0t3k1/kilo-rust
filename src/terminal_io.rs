@@ -1,4 +1,4 @@
-use std::io::{self,Write};
+use std::io::{self, Write};
 use termios::*;
 
 use crate::sys::unix;
@@ -8,11 +8,13 @@ pub struct RawTerminal<W: Write> {
     pub preview_terminal: Termios,
 }
 
-impl<W:Write> RawTerminal<W> {
+impl<W: Write> RawTerminal<W> {
     pub fn suspend_raw_mode(&mut self) -> io::Result<()> {
-       self.output.write(b"\x1b[2J".to_vec().as_mut()).unwrap();
-       self.output.write(b"\x1b[0G\x1b[0d".to_vec().as_mut()).unwrap();
-       unix::set_terminal_setting(&self.preview_terminal)
+        self.output.write(b"\x1b[2J".to_vec().as_mut()).unwrap();
+        self.output
+            .write(b"\x1b[0G\x1b[0d".to_vec().as_mut())
+            .unwrap();
+        unix::set_terminal_setting(&self.preview_terminal)
     }
 
     pub fn resume_raw_mode(&mut self) -> io::Result<()> {
@@ -35,4 +37,3 @@ impl<W: Write> EnableRawMode for W {
         })
     }
 }
-

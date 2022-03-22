@@ -1,16 +1,16 @@
-use std::io::{stdin, stdout, Write};
-use std::{process, env};
 use editor::Editor;
-use terminal_io::EnableRawMode;
 use key::ReadKey;
+use std::io::{stdin, stdout, Write};
+use std::{env, process};
+use terminal_io::EnableRawMode;
 
-mod terminal_io;
 mod editor;
-mod window;
-mod sys;
 mod key;
-mod row;
 mod position;
+mod row;
+mod sys;
+mod terminal_io;
+mod window;
 
 //const VERSION: &str = "0.0.1";
 
@@ -18,27 +18,28 @@ mod position;
 // https://docs.microsoft.com/ja-jp/windows/console/console-virtual-terminal-sequences#input-sequences
 
 fn main() {
-    let mut t = stdout().enable_raw_mode().unwrap(); 
+    let mut t = stdout().enable_raw_mode().unwrap();
     let mut editor = Editor::new();
 
     let args: Vec<String> = env::args().collect();
-    if args.len() >= 2 { 
+    if args.len() >= 2 {
         let filename = &args[1];
         editor.open_file(&filename).unwrap();
+    } else {
+        editor.open_empty();
     }
 
     editor.set_status_message("HELP: Ctrl-S => Save | Ctrl-Q => Quit".to_string());
-    
+
     for c in stdin().keys() {
         let key = c.unwrap();
         if editor.process_keypress(&key) {
             t.output.write(b"\x1b[2J".to_vec().as_mut()).unwrap();
             t.output.write(b"\x1b[0G\x1b[0d".to_vec().as_mut()).unwrap();
             t.suspend_raw_mode().unwrap();
-            process::exit(0); 
+            process::exit(0);
         }
         editor.move_cursor(&key);
         editor.refresh_screen();
     }
 }
-
