@@ -43,8 +43,8 @@ impl Editor {
        let file = File::open(&filename)?;
        self.current_file_name = filename.clone(); 
        for row in BufReader::new(file).lines() {
-            let mut line_with_lf = row?.into_bytes();
-            line_with_lf.push(b'\r');
+            let line_with_lf = row?.into_bytes();
+            //line_with_lf.push(b'\n');
             self.insert_row(self.rows.len(), row::EditorRow {
                 chars: line_with_lf,
                 render: vec!(),
@@ -59,9 +59,10 @@ impl Editor {
         let mut file = File::create(&self.current_file_name)?;
         
         for r in &mut self.rows {
-            if let Some(index) = &r.chars.iter().position(|c| *c == b'\n') {
-                let _ = std::mem::replace(&mut r.chars[*index], b'\n');
-            }
+            r.chars.push(b'\n');
+            //if let Some(index) = &r.chars.iter().position(|c| *c == b'\n') {
+            //    let _ = std::mem::replace(&mut r.chars[*index], b'\n');
+            //}
             file.write_all(r.chars.as_slice())?;
         }
         self.is_dirty = false;
@@ -121,7 +122,7 @@ impl Editor {
             limit_x = if self.cursor_position.y == self.rows.len() {
                 0
             } else {
-                self.rows[self.cursor_position.y].chars.len() - 1
+                self.rows[self.cursor_position.y].chars.len()
             };
 
             limit_y =self.rows.len() - 1;
@@ -132,7 +133,7 @@ impl Editor {
                 if self.cursor_position.x == 0 {
                     if self.cursor_position.y > 0 {
                         self.cursor_position.y -= 1;
-                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len() - 1;
+                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
                     }
                 }else {
                     self.cursor_position -= Position::new(1,0);
@@ -155,7 +156,7 @@ impl Editor {
                     return;
                 }
                 if self.cursor_position.x > self.rows[self.cursor_position.y.saturating_sub(1)].chars.len() {
-                    self.cursor_position.x = self.rows[self.cursor_position.y.saturating_sub(1)].chars.len() - 1;
+                    self.cursor_position.x = self.rows[self.cursor_position.y.saturating_sub(1)].chars.len();
                     self.cursor_position -= Position::new(0,1);
                     return;
                 }
@@ -165,7 +166,7 @@ impl Editor {
                 if self.cursor_position.y < limit_y { 
                     self.cursor_position.y += 1;
                     if self.cursor_position.x > self.rows[self.cursor_position.y].chars.len() {
-                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len() - 1;
+                        self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
                     }
                 };
             },
@@ -274,16 +275,21 @@ impl Editor {
    }
 
    fn insert_newline(&mut self) {
-        let r = self.rows[self.cursor_position.y]
-            .split(self.cursor_position.x);
-        if r.chars.len() == 0 {
-            self.rows[self.cursor_position.y].chars.push(b'\r');
+        if self.rows[self.cursor_position.y].chars.len() == 0 {
+            self.insert_row(self.cursor_position.y + 1, EditorRow { chars: vec!(), render: vec!() });
+        } else if self.cursor_position.x == self.rows[self.cursor_position.y].chars.len() {
+            self.insert_row(self.cursor_position.y + 1, EditorRow { chars: vec!(), render: vec!() });
+        } else {
+            let r = self.rows[self.cursor_position.y]
+                .split(self.cursor_position.x);
+            if r.chars.len() != 0 {
+                self.rows[self.cursor_position.y].update();
+                self.insert_row(self.cursor_position.y + 1, r);
+            }
         }
-        self.rows[self.cursor_position.y].update();
-        self.insert_row(self.cursor_position.y + 1, r);
         self.cursor_position.x = 0;
         self.cursor_position.y += 1;
-   }
+    }
 
    fn insert_char(&mut self, char: u8) {
         self.rows[self.cursor_position.y]
@@ -302,13 +308,11 @@ impl Editor {
                 .render_position(self.cursor_position.x);
        } else {
             if self.cursor_position.y == 0 { return }
-            let mut mv = self.rows.swap_remove(self.cursor_position.y);
+            let mut mv = self.rows.remove(self.cursor_position.y);
             self.cursor_position.y -= 1;
-            self.cursor_position.x = self.rows[self.cursor_position.y].chars.len() - 1;
-            self.render_cursor_position.x = self.rows[self.cursor_position.y].render.len();
-            let last = self.rows[self.cursor_position.y].chars.len();
-            self.rows[self.cursor_position.y].delete_char(last);
+            self.cursor_position.x = self.rows[self.cursor_position.y].chars.len();
             self.rows[self.cursor_position.y].append(&mut mv);
+            self.rows[self.cursor_position.y].update();
        }
         self.is_dirty = true;
    }
