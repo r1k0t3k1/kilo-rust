@@ -281,7 +281,7 @@ impl Editor {
                     len = self.window_size.x
                 }
 
-                let end = (self.offset.x + len).saturating_sub(1);
+                let end = self.offset.x + len;
                 self.append_buffer.append(
                     self.rows[file_row].render[self.offset.x..end]
                         .to_vec()
