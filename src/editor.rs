@@ -1,8 +1,7 @@
 use std::fs::File;
 use std::io::{self, stdin, stdout, BufRead, BufReader, Read, Stdout, Write};
-use std::{string, usize, vec};
+use std::{usize, vec};
 
-use crate::key::ReadKey;
 use crate::row::{self, EditorRow};
 use crate::{key, position::Position, window};
 
@@ -69,8 +68,12 @@ impl Editor {
 
     fn save(&mut self) -> io::Result<()> {
         if self.current_file_name == "[NO NAME]".to_string() {
-            self.current_file_name = String::from_utf8(self.save_prompt()).unwrap();
+            match self.save_prompt() {
+                Some(file_name) => self.current_file_name = String::from_utf8(file_name).unwrap(),
+                None => return Err(std::io::Error::new(io::ErrorKind::Other, "user canceled")),
+            }
         }
+
         let mut file = File::create(&self.current_file_name)?;
 
         for r in &mut self.rows {
@@ -81,20 +84,27 @@ impl Editor {
         Ok(())
     }
 
-    fn save_prompt(&mut self) -> Vec<u8> {
+    fn save_prompt(&mut self) -> Option<Vec<u8>> {
         let prompt = "Save as: ".to_string();
-        self.set_status_message(prompt.clone());
+        self.set_status_message(prompt);
         let mut stdin = stdin();
         let mut ret_buf = vec![];
         loop {
             let mut buf = [0; 1];
-            self.refresh_screen();
             stdin.read(&mut buf).unwrap();
-            if buf[0] == b'\r' {
-                ret_buf.retain(|&x| x != b'0');
-                return ret_buf;
+
+            match buf[0] {
+                b'\r' => return Some(ret_buf),
+                // allow press backspace to remove last char
+                8 => ret_buf.truncate(ret_buf.len().saturating_sub(1)),
+                // press esc to exit
+                27 => return None,
+                // allow only ascii character
+                c @ 32..=126 => ret_buf.push(c),
+                _ => (),
             }
-            ret_buf.push(buf[0]);
+            self.set_status_message(format!("Save as: {}", String::from_utf8(ret_buf.clone()).unwrap()));
+            self.refresh_screen();
         }
     }
 
