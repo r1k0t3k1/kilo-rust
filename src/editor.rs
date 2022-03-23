@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{self, stdin, stdout, BufRead, BufReader, Read, Stdout, Write};
 use std::{usize, vec};
 
+use crate::csi;
 use crate::row::{self, EditorRow};
 use crate::{key, position::Position, window};
 
@@ -40,17 +41,19 @@ impl Editor {
     }
 
     pub fn open_file(&mut self, filename: &String) -> io::Result<()> {
-        let file = File::open(&filename)?;
-        self.current_file_name = filename.clone();
+        let file = File::open(filename)?;
+        self.current_file_name = filename.to_owned();
         for row in BufReader::new(file).lines() {
-            let line_with_lf = row?.into_bytes();
-            self.insert_row(
-                self.rows.len(),
-                row::EditorRow {
-                    chars: line_with_lf,
-                    render: vec![],
-                },
-            );
+            if let Ok(r) = row {
+                let line_with_lf = r.into_bytes();
+                self.insert_row(
+                    self.rows.len(),
+                    row::EditorRow {
+                        chars: line_with_lf,
+                        render: vec![],
+                    },
+                );
+            }
         }
         self.is_dirty = false;
         Ok(())
@@ -103,7 +106,10 @@ impl Editor {
                 c @ 32..=126 => ret_buf.push(c),
                 _ => (),
             }
-            self.set_status_message(format!("Save as: {}", String::from_utf8(ret_buf.clone()).unwrap()));
+            self.set_status_message(format!(
+                "Save as: {}",
+                String::from_utf8(ret_buf.clone()).unwrap()
+            ));
             self.refresh_screen();
         }
     }
@@ -225,21 +231,16 @@ impl Editor {
 
     pub fn refresh_screen(&mut self) {
         self.scroll();
-        self.append_buffer
-            .append(b"\x1b[?25l\x1b[H".to_vec().as_mut());
+        self.append_buffer.append(&mut csi::Csi::HideCursor.to_string().into_bytes());
+        self.append_buffer.append(&mut csi::Csi::CursorToTopLeft.to_string().into_bytes());
         self.draw_rows();
         self.draw_status_bar();
-        self.append_buffer.append(
-            format!(
-                "\x1b[{};{}H",
+        self.append_buffer.append(&mut csi::Csi::CursorTo(
                 self.cursor_position.y - self.offset.y + 1,
                 self.render_cursor_position.x - self.offset.x + 1
-            )
-            .as_bytes()
-            .to_vec()
-            .as_mut(),
+                ).to_string().into_bytes()
         );
-        self.append_buffer.append(b"\x1b[?25h".to_vec().as_mut());
+        self.append_buffer.append(&mut csi::Csi::ShowCursor.to_string().into_bytes());
         self.stdout
             .write_all(self.append_buffer.as_slice())
             .unwrap();
@@ -249,11 +250,13 @@ impl Editor {
 
     pub fn draw_rows(&mut self) {
         for i in 0..self.window_size.y {
-            self.append_buffer.append(b"\x1b[K".to_vec().as_mut());
+            self.append_buffer.append(&mut csi::Csi::ClearLine.to_string().into_bytes());
             let file_row = i + self.offset.y;
             if file_row >= self.rows.len() {
-                self.append_buffer
-                    .append(b"\x1b[48;5;236m~\x1b[m".to_vec().as_mut());
+                self.append_buffer.append(&mut csi::Csi::BackgroundColor(236).to_string().into_bytes());
+                self.append_buffer.append(&mut "~".to_string().into_bytes());
+                self.append_buffer.append(&mut csi::Csi::ResetStyle.to_string().into_bytes());
+                
                 if i >= self.rows.len() {
                     if self.rows.len() == 1
                         && self.rows[0].chars.len() == 0
@@ -290,32 +293,28 @@ impl Editor {
     }
 
     fn draw_status_bar(&mut self) {
-        self.append_buffer
-            .append(b"\x1b[48;5;245m".to_vec().as_mut());
+        self.append_buffer.append(&mut csi::Csi::BackgroundColor(245).to_string().into_bytes());
 
         let mut status_text = format!(
             "{}{}: (cx{}, cy{}): (rcx{}, rcy{}): lc:{}",
             self.current_file_name,
-            if let true = self.is_dirty {
-                "(modified)"
-            } else {
-                ""
-            },
+            if self.is_dirty { "(modified)" } else { "" },
             self.cursor_position.x,
             self.cursor_position.y,
             self.render_cursor_position.x,
             self.render_cursor_position.y,
             self.rows.len(),
         );
+
+        // padding
         for _ in 0..self.window_size.x - status_text.len() {
             status_text.push(' ');
         }
         self.append_buffer
             .append(status_text.as_bytes().to_vec().as_mut());
-        self.append_buffer.append(b"\x1b[m".to_vec().as_mut());
-
+        self.append_buffer.append(&mut csi::Csi::ResetStyle.to_string().into_bytes());
         self.append_buffer.append(b"\r\n".to_vec().as_mut());
-        self.append_buffer.append(b"\x1b[K".to_vec().as_mut());
+        self.append_buffer.append(&mut csi::Csi::ClearLine.to_string().into_bytes());
         self.append_buffer
             .append(self.status_message.as_bytes().to_vec().as_mut());
     }

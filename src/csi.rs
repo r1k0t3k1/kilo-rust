@@ -1,0 +1,50 @@
+pub enum Csi {
+    ClearScreen,
+    ClearLine,
+    CursorToTopLeft,
+    CursorTo(usize, usize),
+    CursorOffset(usize, usize),
+    QueryCursorPosition,
+    HideCursor,
+    ShowCursor,
+    MoveUp,
+    MoveDown,
+    MoveLeft,
+    MoveRight,
+    PageUp,
+    PageDown,
+    Home,
+    End,
+    Delete,
+    TextStyle(u8),
+    BackgroundColor(u8),
+    ResetStyle,
+}
+
+impl ToString for Csi {
+    fn to_string(&self) -> String {
+        match self {
+            Csi::ClearScreen => "\x1b[2J".to_string(),
+            Csi::ClearLine => "\x1b[K".to_string(),
+            Csi::CursorToTopLeft => "\x1b[H".to_string(),
+            Csi::CursorTo(x, y) => format!("\x1b[{};{}H", x, y),
+            Csi::CursorOffset(x, y) => format!("\x1b[{}C\x1b[{}B", x, y),
+            Csi::QueryCursorPosition => "\x1b[6n".to_string(),
+            Csi::HideCursor => "\x1b[?25l".to_string(),
+            Csi::ShowCursor => "\x1b[?25h".to_string(),
+            Csi::MoveUp => "\x1b[A".to_string(),
+            Csi::MoveDown => "\x1b[B".to_string(),
+            Csi::MoveLeft => "\x1b[C".to_string(),
+            Csi::MoveRight => "\x1b[D".to_string(),
+            Csi::PageUp => "\x1b[6~".to_string(),
+            Csi::PageDown => "\x1b[5~".to_string(),
+            Csi::Home => "\x1b[1~".to_string(),
+            Csi::End => "\x1b[4~".to_string(),
+            Csi::Delete => "\x1b[3~".to_string(),
+            Csi::TextStyle(c) => format!("\x1b[{}m", c),
+            Csi::BackgroundColor(c) => format!("\x1b[48;5;{}m", c),
+            Csi::ResetStyle => "\x1b[m".to_string(),
+            _ => unreachable!(),
+        }
+    }
+}

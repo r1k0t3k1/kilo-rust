@@ -4,6 +4,7 @@ use std::io::{stdin, stdout, Write};
 use std::{env, process};
 use terminal_io::EnableRawMode;
 
+mod csi;
 mod editor;
 mod key;
 mod position;
@@ -34,8 +35,8 @@ fn main() {
     for c in stdin().keys() {
         let key = c.unwrap();
         if editor.process_keypress(&key) {
-            t.output.write(b"\x1b[2J".to_vec().as_mut()).unwrap();
-            t.output.write(b"\x1b[0G\x1b[0d".to_vec().as_mut()).unwrap();
+            t.output.write(csi::Csi::ClearScreen.to_string().as_bytes()).unwrap();
+            t.output.write(csi::Csi::CursorToTopLeft.to_string().as_bytes()).unwrap();
             t.suspend_raw_mode().unwrap();
             process::exit(0);
         }
